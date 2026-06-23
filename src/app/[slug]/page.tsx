@@ -101,16 +101,26 @@ export default async function PartnerPortalPage({
 
       <div className="grid gap-3">
         {assemblies.map((assembly) => {
-          const done = assembly.submissions.some((s) => s.status === SubmissionStatus.SUBMITTED);
+          const submitted = assembly.submissions.some((s) => s.status === SubmissionStatus.SUBMITTED);
           return (
             <Link key={assembly.id} href={`/${slug}/${encodeURIComponent(assembly.dealId)}`}>
               <Card className="transition hover:border-brand-500">
                 <p className="font-medium text-slate-900">{assembly.dealId}</p>
                 <p className="text-sm text-slate-600">{assembly.clientName || "Unknown client"}</p>
-                <p className="mt-2 text-xs text-slate-500">
-                  {assembly.assemblyDate?.toLocaleDateString("en-GB") ?? "Date TBC"}
-                  {done && " · Submitted"}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-500">
+                    {assembly.assemblyDate?.toLocaleDateString("en-GB") ?? "Date TBC"}
+                  </span>
+                  <span
+                    className={
+                      submitted
+                        ? "rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-800"
+                        : "rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600"
+                    }
+                  >
+                    {submitted ? "Questionnaire completed" : "Not completed"}
+                  </span>
+                </div>
               </Card>
             </Link>
           );
