@@ -122,6 +122,7 @@ model ToolCard {
   name        String
   description String
   url         String
+  iconKey     String?
   sortOrder   Int              @default(0)
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
