@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BoothModel, ResourceType } from "@prisma/client";
+import { BoothModel } from "@prisma/client";
 import { requirePartnerSession } from "@/lib/partner-session";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
@@ -9,6 +9,7 @@ import {
   BOOTH_MODEL_GROUPS,
   boothModelLabel,
 } from "@/lib/booth-models";
+import { resourceTypeLabel } from "@/lib/resources";
 import { Card } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -102,7 +103,7 @@ export default async function PartnerResourcesPage({
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                  {resource.type === ResourceType.PDF ? "PDF" : "Video"}
+                  {resourceTypeLabel(resource.type)}
                 </span>
               </div>
             </Card>

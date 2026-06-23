@@ -2,6 +2,7 @@ import { ResourceType } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 import { boothModelLabel } from "@/lib/booth-models";
+import { resourceTypeLabel } from "@/lib/resources";
 import { deleteResource } from "@/app/actions/resources";
 import { ResourceAddForm } from "@/components/resource-add-form";
 import { Button, Card, PageHeader } from "@/components/ui";
@@ -36,7 +37,7 @@ export default async function ResourcesPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-slate-900">{resource.title}</p>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                    {resource.type === ResourceType.PDF ? "PDF" : "YouTube"}
+                    {resourceTypeLabel(resource.type)}
                   </span>
                 </div>
                 {resource.description && (
@@ -58,6 +59,9 @@ export default async function ResourcesPage() {
                 {resource.type === ResourceType.YOUTUBE && resource.youtubeUrl && (
                   <p className="mt-2 truncate text-xs text-slate-500">{resource.youtubeUrl}</p>
                 )}
+                {resource.type === ResourceType.LINK && resource.linkUrl && (
+                  <p className="mt-2 truncate text-xs text-slate-500">{resource.linkUrl}</p>
+                )}
               </div>
               <form action={deleteResource}>
                 <input type="hidden" name="id" value={resource.id} />
@@ -70,7 +74,7 @@ export default async function ResourcesPage() {
         ))}
         {resources.length === 0 && (
           <Card>
-            <p className="text-sm text-slate-600">No resources yet. Add a PDF guide or YouTube link above.</p>
+            <p className="text-sm text-slate-600">No resources yet. Add a PDF, YouTube video, or link above.</p>
           </Card>
         )}
       </div>

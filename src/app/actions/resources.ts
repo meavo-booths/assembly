@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { parseBoothModels, parseYoutubeVideoId } from "@/lib/booth-models";
+import { parseHttpUrl } from "@/lib/resources";
 
 export async function createResource(formData: FormData): Promise<{ error?: string }> {
   await requireMeavoAccess();
@@ -64,8 +65,22 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
         models: { create: models.map((boothModel) => ({ boothModel })) },
       },
     });
+  } else if (type === "LINK") {
+    const linkUrl = parseHttpUrl(String(formData.get("linkUrl") ?? ""));
+    if (!linkUrl) return { error: "Enter a valid http or https link." };
+
+    await prisma.resource.create({
+      data: {
+        title,
+        description,
+        type: ResourceType.LINK,
+        linkUrl,
+        sortOrder,
+        models: { create: models.map((boothModel) => ({ boothModel })) },
+      },
+    });
   } else {
-    return { error: "Choose PDF or YouTube." };
+    return { error: "Choose PDF, YouTube, or Link." };
   }
 
   revalidatePath("/resources");

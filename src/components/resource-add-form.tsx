@@ -6,9 +6,11 @@ import { BOOTH_MODEL_GROUPS } from "@/lib/booth-models";
 import { createResource } from "@/app/actions/resources";
 import { Button, Input } from "@/components/ui";
 
+type ResourceFormType = "PDF" | "YOUTUBE" | "LINK";
+
 export function ResourceAddForm() {
   const router = useRouter();
-  const [type, setType] = useState<"PDF" | "YOUTUBE">("PDF");
+  const [type, setType] = useState<ResourceFormType>("PDF");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -38,11 +40,12 @@ export function ResourceAddForm() {
           <select
             name="type"
             value={type}
-            onChange={(e) => setType(e.target.value as "PDF" | "YOUTUBE")}
+            onChange={(e) => setType(e.target.value as ResourceFormType)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
           >
             <option value="PDF">PDF guide</option>
             <option value="YOUTUBE">YouTube video</option>
+            <option value="LINK">Link</option>
           </select>
         </label>
       </div>
@@ -57,7 +60,7 @@ export function ResourceAddForm() {
         />
       </label>
 
-      {type === "PDF" ? (
+      {type === "PDF" && (
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-slate-700">PDF file</span>
           <input
@@ -68,8 +71,14 @@ export function ResourceAddForm() {
             className="block w-full text-sm text-slate-600"
           />
         </label>
-      ) : (
+      )}
+
+      {type === "YOUTUBE" && (
         <Input label="YouTube link" name="youtubeUrl" required placeholder="https://www.youtube.com/watch?v=..." />
+      )}
+
+      {type === "LINK" && (
+        <Input label="Link URL" name="linkUrl" required placeholder="https://..." />
       )}
 
       <fieldset className="space-y-3">

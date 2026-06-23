@@ -428,6 +428,7 @@ enum BoothModel {
 enum ResourceType {
   PDF
   YOUTUBE
+  LINK
 }
 
 model Resource {
@@ -440,6 +441,7 @@ model Resource {
   mimeType       String?
   youtubeUrl     String?
   youtubeVideoId String?
+  linkUrl        String?
   sortOrder      Int          @default(0)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

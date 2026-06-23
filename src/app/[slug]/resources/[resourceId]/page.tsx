@@ -58,6 +58,19 @@ export default async function PartnerResourceDetailPage({
             />
           </div>
         </Card>
+      ) : resource.type === ResourceType.LINK && resource.linkUrl ? (
+        <Card className="text-center">
+          <p className="text-sm text-slate-600">Open this resource in your browser.</p>
+          <a
+            href={resource.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          >
+            Open link
+          </a>
+          <p className="mt-2 truncate text-xs text-slate-500">{resource.linkUrl}</p>
+        </Card>
       ) : (
         <Card className="text-center">
           <p className="text-sm text-slate-600">Open the PDF guide in your browser.</p>
