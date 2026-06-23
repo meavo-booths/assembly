@@ -84,10 +84,10 @@ export default async function AssemblyDetailPage({
           {submission.photos.length > 0 && (
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {submission.photos.map((photo) => (
-                <a key={photo.id} href={photo.storageKey} target="_blank" rel="noreferrer">
+                <a key={photo.id} href={`/api/photos/${photo.id}`} target="_blank" rel="noreferrer">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={photo.storageKey}
+                    src={`/api/photos/${photo.id}`}
                     alt={photo.fileName}
                     className="aspect-square rounded-lg object-cover"
                   />

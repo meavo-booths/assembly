@@ -98,13 +98,13 @@ export async function uploadSubmissionPhotos(
     for (let i = 0; i < files.length; i += 1) {
       const file = files[i];
       const blob = await put(`assembly/${assembly.dealId}/${file.name}`, file, {
-        access: "public",
+        access: "private",
         addRandomSuffix: true,
       });
       await prisma.submissionPhoto.create({
         data: {
           submissionId: submission.id,
-          storageKey: blob.url,
+          storageKey: blob.pathname,
           fileName: file.name,
           sortOrder: existingCount + i,
         },
