@@ -28,8 +28,37 @@ Open [http://localhost:3001](http://localhost:3001).
 | `GOOGLE_SHEETS_SPREADSHEET_ID` | Delivery tracker sheet |
 | `GOOGLE_SHEETS_TAB_NAME` | `Deliveries` |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Service account JSON (Viewer on sheet) |
-| `CRON_SECRET` | Protects `/api/cron/import` |
+| `CRON_SECRET` | Protects `/api/cron/import` (set in Vercel; auto-sent by Cron Jobs) |
 | `BLOB_READ_WRITE_TOKEN` | Photo uploads |
+
+## Sheet sync cron
+
+`vercel.json` schedules `GET /api/cron/import` **every 30 minutes** (`*/30 * * * *`).
+
+On each run Vercel:
+
+1. Calls `/api/cron/import` on the production deployment
+2. Sends `Authorization: Bearer <CRON_SECRET>` (from your env vars)
+3. The route runs the same import as **Refresh from sheet** — upserts assemblies and partners from the Deliveries tab
+
+**Plan limits (Vercel):**
+
+| Plan | How often cron actually runs |
+|------|------------------------------|
+| **Pro** | Every 30 minutes (per schedule) |
+| **Hobby** | Once per day (Vercel caps Hobby cron invocations) |
+
+To change frequency, edit the `schedule` in `vercel.json` (cron syntax). Examples:
+
+- `0 * * * *` — hourly, on the hour
+- `*/15 * * * *` — every 15 minutes (Pro)
+- `0 6,12,18 * * *` — three times daily
+
+Manual test (replace secret):
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://assembly.meavo.app/api/cron/import
+```
 
 ## Deploy
 
