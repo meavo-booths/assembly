@@ -1,21 +1,26 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { SubmissionStatus } from "@prisma/client";
+import { headers, cookies } from "next/headers";
+import { SubmissionStatus, QuestionnaireLocale } from "@prisma/client";
 import { requirePartnerSession } from "@/lib/partner-session";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
+import { QUESTIONNAIRE_LOCALE_COOKIE } from "@/lib/questionnaire-locales";
+import { loadLocalizedQuestionnaireSections } from "@/lib/questionnaire-i18n";
 import { QuestionnaireWizard } from "@/components/questionnaire-wizard";
-import { mapQuestionnaireSections } from "@/lib/questionnaire";
 
 export const dynamic = "force-dynamic";
 
 export default async function PartnerAssemblyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; dealId: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }) {
   const { slug, dealId: rawDealId } = await params;
   const dealId = decodeURIComponent(rawDealId);
+  const { lang } = await searchParams;
 
   if (MEVAO_RESERVED_SEGMENTS.has(slug)) notFound();
 
@@ -37,7 +42,20 @@ export default async function PartnerAssemblyPage({
     },
   });
 
-  const sections = mapQuestionnaireSections(questionnaire?.sections ?? []);
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+
+  const localized = questionnaire
+    ? await loadLocalizedQuestionnaireSections(questionnaire.sections, {
+        langParam: lang,
+        cookieLang: cookieStore.get(QUESTIONNAIRE_LOCALE_COOKIE)?.value,
+        acceptLanguage: headerStore.get("accept-language"),
+      })
+    : {
+        sections: [],
+        locale: QuestionnaireLocale.EN,
+        availableLocales: [QuestionnaireLocale.EN],
+      };
 
   const submission = await prisma.questionnaireSubmission.findUnique({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
@@ -71,7 +89,9 @@ export default async function PartnerAssemblyPage({
       <QuestionnaireWizard
         slug={slug}
         dealId={dealId}
-        sections={sections}
+        sections={localized.sections}
+        locale={localized.locale}
+        availableLocales={localized.availableLocales}
         initialAnswers={initialAnswers}
         hasPhotos={(submission?.photos.length ?? 0) > 0}
         isSubmitted={submission?.status === SubmissionStatus.SUBMITTED}

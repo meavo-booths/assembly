@@ -1,4 +1,5 @@
-import { QuestionType } from "@prisma/client";
+import { QuestionType, QuestionnaireLocale } from "@prisma/client";
+import type { TranslationLookup } from "@/lib/questionnaire-locales";
 
 export type QuestionRecord = {
   id: string;
@@ -97,14 +98,23 @@ type DbQuestionnaireSection = {
   }>;
 };
 
-export function mapQuestionnaireSections(sections: DbQuestionnaireSection[]): SectionRecord[] {
+export function mapQuestionnaireSections(
+  sections: DbQuestionnaireSection[],
+  locale: QuestionnaireLocale = QuestionnaireLocale.EN,
+  translations?: TranslationLookup,
+): SectionRecord[] {
+  const useTranslations =
+    locale !== QuestionnaireLocale.EN && translations !== undefined;
+
   return sections.map((section) => ({
     id: section.id,
-    title: section.title,
+    title: useTranslations
+      ? (translations.sections[section.id] ?? section.title)
+      : section.title,
     sortOrder: section.sortOrder,
     questions: section.questions.map((q) => ({
       id: q.id,
-      text: q.text,
+      text: useTranslations ? (translations.questions[q.id] ?? q.text) : q.text,
       type: q.type,
       sortOrder: q.sortOrder,
       parentQuestionId: q.parentQuestionId,

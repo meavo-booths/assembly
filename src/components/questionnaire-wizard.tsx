@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { QuestionnaireLocale } from "@prisma/client";
 import {
   type AnswerRecord,
   type SectionRecord,
   buildWizardSteps,
   isStepComplete,
 } from "@/lib/questionnaire";
+import { getQuestionnaireUiCopy } from "@/lib/questionnaire-ui";
 import { saveQuestionAnswer, submitQuestionnaire, uploadSubmissionPhotos } from "@/app/actions/partner";
+import { QuestionnaireLanguagePicker } from "@/components/questionnaire-language-picker";
 import { Button, Card } from "@/components/ui";
 
 export function QuestionnaireWizard({
@@ -18,6 +21,8 @@ export function QuestionnaireWizard({
   hasPhotos = false,
   isSubmitted = false,
   preview = false,
+  locale = QuestionnaireLocale.EN,
+  availableLocales = [QuestionnaireLocale.EN],
 }: {
   slug?: string;
   dealId?: string;
@@ -26,7 +31,10 @@ export function QuestionnaireWizard({
   hasPhotos?: boolean;
   isSubmitted?: boolean;
   preview?: boolean;
+  locale?: QuestionnaireLocale;
+  availableLocales?: QuestionnaireLocale[];
 }) {
+  const ui = getQuestionnaireUiCopy(locale);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState(initialAnswers);
   const [pending, startTransition] = useTransition();
@@ -62,12 +70,10 @@ export function QuestionnaireWizard({
   if (previewComplete) {
     return (
       <Card className="text-center">
-        <p className="text-lg font-medium text-slate-900">Preview complete</p>
-        <p className="mt-2 text-sm text-slate-600">
-          You reached the end of the questionnaire. Nothing was saved — this is a test run only.
-        </p>
+        <p className="text-lg font-medium text-slate-900">{ui.previewCompleteTitle}</p>
+        <p className="mt-2 text-sm text-slate-600">{ui.previewCompleteBody}</p>
         <Button type="button" className="mt-4" onClick={restartPreview}>
-          Start over
+          {ui.startOver}
         </Button>
       </Card>
     );
@@ -76,8 +82,8 @@ export function QuestionnaireWizard({
   if (isSubmitted && !preview) {
     return (
       <Card className="text-center">
-        <p className="text-lg font-medium text-slate-900">Questionnaire submitted</p>
-        <p className="mt-2 text-sm text-slate-600">Thank you. MEAVO has received your install checklist.</p>
+        <p className="text-lg font-medium text-slate-900">{ui.submittedTitle}</p>
+        <p className="mt-2 text-sm text-slate-600">{ui.submittedBody}</p>
       </Card>
     );
   }
@@ -86,9 +92,7 @@ export function QuestionnaireWizard({
     return (
       <Card>
         <p className="text-sm text-slate-600">
-          {preview
-            ? "No sections in the questionnaire yet. Add sections on the builder page, then preview again."
-            : "No questionnaire has been published yet."}
+          {preview ? ui.noSectionsPreview : ui.noSectionsPartner}
         </p>
       </Card>
     );
@@ -97,7 +101,7 @@ export function QuestionnaireWizard({
   if (!currentStep) {
     return (
       <Card>
-        <p className="text-sm text-slate-600">No steps available for this questionnaire.</p>
+        <p className="text-sm text-slate-600">{ui.noSteps}</p>
       </Card>
     );
   }
@@ -112,14 +116,24 @@ export function QuestionnaireWizard({
 
   return (
     <div className="mx-auto w-full max-w-lg">
+      {!preview && slug && dealId && (
+        <QuestionnaireLanguagePicker
+          slug={slug}
+          dealId={dealId}
+          locale={locale}
+          availableLocales={availableLocales}
+          label={ui.languageLabel}
+        />
+      )}
+
       {preview && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <span className="font-medium">Preview mode</span> — answers and photos are not saved.
+          {ui.previewBanner}
         </div>
       )}
 
       <p className="mb-4 text-center text-sm text-slate-500">
-        Step {step + 1} of {totalSteps}
+        {ui.step(step + 1, totalSteps)}
       </p>
 
       {currentStep.kind === "section" && (
@@ -154,7 +168,7 @@ export function QuestionnaireWizard({
           </div>
           <div className="mt-6 flex gap-3">
             <Button type="button" variant="secondary" className="flex-1" disabled={step === 0} onClick={goBack}>
-              Back
+              {ui.back}
             </Button>
             <Button
               type="button"
@@ -162,7 +176,7 @@ export function QuestionnaireWizard({
               disabled={!isStepComplete(currentStep, answers) || pending}
               onClick={goNext}
             >
-              Next
+              {ui.next}
             </Button>
           </div>
         </Card>
@@ -173,8 +187,8 @@ export function QuestionnaireWizard({
           <p className="text-lg font-medium text-slate-900">{currentStep.question.text}</p>
           <div className="mt-6 grid grid-cols-2 gap-3">
             {[
-              { label: "Yes", value: true },
-              { label: "No", value: false },
+              { label: ui.yes, value: true },
+              { label: ui.no, value: false },
             ].map((option) => {
               const selected = answers[currentStep.question.id]?.yesNo === option.value;
               return (
@@ -205,7 +219,7 @@ export function QuestionnaireWizard({
           </div>
           <div className="mt-6 flex gap-3">
             <Button type="button" variant="secondary" className="flex-1" disabled={step === 0} onClick={goBack}>
-              Back
+              {ui.back}
             </Button>
             <Button
               type="button"
@@ -229,9 +243,9 @@ export function QuestionnaireWizard({
               {answers[currentStep.question.id]?.yesNo === false &&
               currentStep.question.endsQuestionnaireOnNo
                 ? preview
-                  ? "Finish preview"
-                  : "Finish"
-                : "Next"}
+                  ? ui.finishPreview
+                  : ui.finish
+                : ui.next}
             </Button>
           </div>
         </Card>
@@ -243,7 +257,7 @@ export function QuestionnaireWizard({
           <textarea
             className="mt-6 w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
             rows={4}
-            placeholder="Describe the issues…"
+            placeholder={ui.followUpPlaceholder}
             value={answers[currentStep.question.id]?.text ?? ""}
             onChange={(e) => {
               const text = e.target.value;
@@ -262,7 +276,7 @@ export function QuestionnaireWizard({
           />
           <div className="mt-6 flex gap-3">
             <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
-              Back
+              {ui.back}
             </Button>
             <Button
               type="button"
@@ -290,7 +304,7 @@ export function QuestionnaireWizard({
                 });
               }}
             >
-              Next
+              {ui.next}
             </Button>
           </div>
         </Card>
@@ -298,10 +312,8 @@ export function QuestionnaireWizard({
 
       {currentStep.kind === "photos" && (
         <Card>
-          <p className="text-lg font-medium text-slate-900">Installation photos</p>
-          <p className="mt-2 text-sm text-slate-600">
-            Attach photos of the completed assembly (booth exterior, interior, and any issues).
-          </p>
+          <p className="text-lg font-medium text-slate-900">{ui.photosTitle}</p>
+          <p className="mt-2 text-sm text-slate-600">{ui.photosDescription}</p>
 
           {preview ? (
             <div className="mt-4 space-y-4">
@@ -313,13 +325,13 @@ export function QuestionnaireWizard({
                 className="block w-full text-sm"
                 disabled
               />
-              <p className="text-xs text-slate-500">Photo upload is disabled in preview mode.</p>
+              <p className="text-xs text-slate-500">{ui.photosDisabledPreview}</p>
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
-                  Back
+                  {ui.back}
                 </Button>
                 <Button type="button" className="flex-1" onClick={completePreview}>
-                  Complete preview
+                  {ui.completePreview}
                 </Button>
               </div>
             </div>
@@ -347,16 +359,14 @@ export function QuestionnaireWizard({
                 multiple
                 className="block w-full text-sm"
               />
-              {hasPhotos && (
-                <p className="text-xs text-slate-500">You can add more photos before submitting.</p>
-              )}
+              {hasPhotos && <p className="text-xs text-slate-500">{ui.photosAddMore}</p>}
               {error && <p className="text-sm text-red-600">{error}</p>}
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
-                  Back
+                  {ui.back}
                 </Button>
                 <Button type="submit" className="flex-1" disabled={pending}>
-                  {pending ? "Submitting…" : "Submit"}
+                  {pending ? ui.submitting : ui.submit}
                 </Button>
               </div>
             </form>

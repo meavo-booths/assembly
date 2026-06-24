@@ -274,6 +274,20 @@ enum SubmissionStatus {
   SUBMITTED
 }
 
+enum QuestionnaireLocale {
+  EN
+  DE
+  FR
+  ES
+  IT
+}
+
+enum TranslationStatus {
+  DRAFT
+  APPROVED
+  STALE
+}
+
 enum QuestionType {
   CHECKBOX
   TEXT
@@ -335,6 +349,7 @@ model QuestionnaireSection {
 
   questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
   questions     Question[]
+  translations  QuestionnaireSectionTranslation[]
 
   @@index([questionnaireId, sortOrder])
 }
@@ -357,9 +372,34 @@ model Question {
   parentQuestion      Question?             @relation("QuestionFollowUp", fields: [parentQuestionId], references: [id], onDelete: Cascade)
   followUpQuestions   Question[]            @relation("QuestionFollowUp")
   answers             QuestionAnswer[]
+  translations        QuestionTranslation[]
 
   @@index([questionnaireId, sortOrder])
   @@index([sectionId, sortOrder])
+}
+
+model QuestionnaireSectionTranslation {
+  sectionId String
+  locale    QuestionnaireLocale
+  title     String
+  status    TranslationStatus @default(DRAFT)
+  updatedAt DateTime          @updatedAt
+
+  section QuestionnaireSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@id([sectionId, locale])
+}
+
+model QuestionTranslation {
+  questionId String
+  locale     QuestionnaireLocale
+  text       String
+  status     TranslationStatus @default(DRAFT)
+  updatedAt  DateTime            @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, locale])
 }
 
 model QuestionnaireSubmission {

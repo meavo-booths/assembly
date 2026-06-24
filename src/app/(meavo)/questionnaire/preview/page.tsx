@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuestionnaireLocale } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 import { mapQuestionnaireSections } from "@/lib/questionnaire";
@@ -59,7 +60,12 @@ export default async function QuestionnairePreviewPage() {
         </p>
       )}
 
-      <QuestionnaireWizard preview sections={sections} />
+      <QuestionnaireWizard
+        preview
+        sections={sections}
+        locale={QuestionnaireLocale.EN}
+        availableLocales={[QuestionnaireLocale.EN]}
+      />
     </div>
   );
 }
