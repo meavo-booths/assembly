@@ -84,6 +84,7 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
   }
 
   revalidatePath("/resources");
+  revalidatePath("/resources/preview");
   return {};
 }
 
@@ -105,4 +106,32 @@ export async function deleteResource(formData: FormData): Promise<void> {
 
   await prisma.resource.delete({ where: { id } });
   revalidatePath("/resources");
+  revalidatePath("/resources/preview");
+}
+
+export async function moveResource(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const id = String(formData.get("id") ?? "");
+  const direction = formData.get("direction") === "down" ? "down" : "up";
+  if (!id) return;
+
+  const resource = await prisma.resource.findUnique({ where: { id } });
+  if (!resource) return;
+
+  const resources = await prisma.resource.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+
+  const index = resources.findIndex((entry) => entry.id === id);
+  const swapIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || swapIndex < 0 || swapIndex >= resources.length) return;
+
+  const other = resources[swapIndex];
+  await prisma.$transaction([
+    prisma.resource.update({ where: { id }, data: { sortOrder: other.sortOrder } }),
+    prisma.resource.update({ where: { id: other.id }, data: { sortOrder: resource.sortOrder } }),
+  ]);
+
+  revalidatePath("/resources");
+  revalidatePath("/resources/preview");
 }

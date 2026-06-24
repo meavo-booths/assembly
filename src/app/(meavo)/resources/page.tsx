@@ -4,7 +4,7 @@ import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 import { boothModelLabel } from "@/lib/booth-models";
 import { resourceTypeLabel } from "@/lib/resources";
-import { deleteResource } from "@/app/actions/resources";
+import { deleteResource, moveResource } from "@/app/actions/resources";
 import { ResourceAddForm } from "@/components/resource-add-form";
 import { Button, Card, PageHeader } from "@/components/ui";
 
@@ -40,7 +40,7 @@ export default async function ResourcesPage() {
       </Card>
 
       <div className="grid gap-4">
-        {resources.map((resource) => (
+        {resources.map((resource, resourceIndex) => (
           <Card key={resource.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
@@ -73,12 +73,38 @@ export default async function ResourcesPage() {
                   <p className="mt-2 truncate text-xs text-slate-500">{resource.linkUrl}</p>
                 )}
               </div>
-              <form action={deleteResource}>
-                <input type="hidden" name="id" value={resource.id} />
-                <Button type="submit" variant="danger">
-                  Delete
-                </Button>
-              </form>
+              <div className="flex gap-1">
+                <form action={moveResource}>
+                  <input type="hidden" name="id" value={resource.id} />
+                  <input type="hidden" name="direction" value="up" />
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    className="px-2 py-1.5"
+                    disabled={resourceIndex === 0}
+                  >
+                    ↑
+                  </Button>
+                </form>
+                <form action={moveResource}>
+                  <input type="hidden" name="id" value={resource.id} />
+                  <input type="hidden" name="direction" value="down" />
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    className="px-2 py-1.5"
+                    disabled={resourceIndex === resources.length - 1}
+                  >
+                    ↓
+                  </Button>
+                </form>
+                <form action={deleteResource}>
+                  <input type="hidden" name="id" value={resource.id} />
+                  <Button type="submit" variant="danger">
+                    Delete
+                  </Button>
+                </form>
+              </div>
             </div>
           </Card>
         ))}
