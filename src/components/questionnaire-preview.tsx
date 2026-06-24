@@ -15,95 +15,29 @@ export function QuestionnairePreview({
   locale,
   availableLocales,
   approvedLocales,
-  partnerView,
   isPublished,
 }: {
   sections: SectionRecord[];
   locale: QuestionnaireLocale;
   availableLocales: QuestionnaireLocale[];
   approvedLocales: QuestionnaireLocale[];
-  partnerView: boolean;
   isPublished: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const showDraftBanner =
-    !partnerView && locale !== QuestionnaireLocale.EN && !approvedLocales.includes(locale);
+    locale !== QuestionnaireLocale.EN && !approvedLocales.includes(locale);
 
-  function updateParams(mutate: (params: URLSearchParams) => void) {
+  function selectLocale(nextLocale: QuestionnaireLocale) {
     const params = new URLSearchParams(searchParams.toString());
-    mutate(params);
+    params.set("lang", questionnaireLocaleToParam(nextLocale));
     const query = params.toString();
     router.push(query ? `/questionnaire/preview?${query}` : "/questionnaire/preview");
   }
 
-  function selectLocale(nextLocale: QuestionnaireLocale) {
-    updateParams((params) => {
-      params.set("lang", questionnaireLocaleToParam(nextLocale));
-    });
-  }
-
-  function setPartnerView(next: boolean) {
-    updateParams((params) => {
-      if (next) {
-        params.set("mode", "partner");
-      } else {
-        params.delete("mode");
-      }
-    });
-  }
-
   return (
     <div className="mx-auto max-w-lg space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">Preview</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Walk through the questionnaire as a partner would. Nothing is saved.
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview mode</p>
-        <div
-          className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1"
-          role="tablist"
-          aria-label="Preview translation mode"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!partnerView}
-            onClick={() => setPartnerView(false)}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
-              !partnerView
-                ? "bg-white text-brand-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Draft translations
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={partnerView}
-            onClick={() => setPartnerView(true)}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
-              partnerView
-                ? "bg-white text-brand-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Partner view
-          </button>
-        </div>
-        <p className="text-xs text-slate-500">
-          {partnerView
-            ? "Only approved languages — same as partners see after publication."
-            : "All generated translations, including drafts and stale items not yet live."}
-        </p>
-      </div>
-
       {availableLocales.length > 1 && (
         <div>
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Language</p>

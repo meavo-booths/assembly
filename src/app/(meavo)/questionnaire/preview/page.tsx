@@ -10,10 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function QuestionnairePreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lang?: string; mode?: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }) {
-  const { lang, mode } = await searchParams;
-  const partnerView = mode === "partner";
+  const { lang } = await searchParams;
 
   const questionnaire = await prisma.questionnaire.findFirst({
     orderBy: { createdAt: "asc" },
@@ -45,7 +44,7 @@ export default async function QuestionnairePreviewPage({
     ? await loadLocalizedQuestionnaireSections(refreshed.sections, {
         langParam: lang,
         context: "preview",
-        previewPartnerView: partnerView,
+        previewPartnerView: false,
       })
     : {
         sections: [],
@@ -61,7 +60,6 @@ export default async function QuestionnairePreviewPage({
         locale={localized.locale}
         availableLocales={localized.availableLocales}
         approvedLocales={localized.approvedLocales}
-        partnerView={partnerView}
         isPublished={refreshed?.isPublished ?? false}
       />
     </Suspense>
