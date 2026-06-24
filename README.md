@@ -30,6 +30,15 @@ Open [http://localhost:3001](http://localhost:3001).
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Service account JSON (Viewer on sheet) |
 | `CRON_SECRET` | Protects `/api/cron/import` (set in Vercel; auto-sent by Cron Jobs) |
 | `BLOB_READ_WRITE_TOKEN` | Photo uploads |
+| AI Gateway (Vercel) | Questionnaire translations via Gemini — enable in project settings; `vercel env pull` for local OIDC |
+
+## Questionnaire translations
+
+Translations use **Vercel AI Gateway** with **Gemini 3.5 Flash** (`google/gemini-3.5-flash` by default). MEAVO admins generate drafts on `/questionnaire`, review, and approve per language.
+
+1. Enable [AI Gateway](https://vercel.com/docs/ai-gateway) on the assembly Vercel project
+2. For local dev: `vercel link` then `vercel env pull .env.local` (provisions `VERCEL_OIDC_TOKEN`)
+3. Optional: `QUESTIONNAIRE_TRANSLATION_MODEL` to override the model slug
 
 ## Sheet sync cron
 

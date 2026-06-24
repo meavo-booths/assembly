@@ -4,6 +4,7 @@ import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 import { prisma } from "@/lib/prisma";
 import { questionTypeLabel } from "@/lib/questionnaire";
+import { buildLocaleTranslationBundles } from "@/lib/questionnaire-translation-status";
 import {
   addQuestion,
   addSection,
@@ -12,7 +13,10 @@ import {
   moveQuestion,
   moveSection,
   toggleQuestionnairePublished,
+  updateQuestionText,
+  updateSectionTitle,
 } from "@/app/actions/meavo";
+import { QuestionnaireTranslationsPanel } from "@/components/questionnaire-translations-panel";
 import { Button, Card, Input, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +29,10 @@ export default async function QuestionnairePage() {
     include: {
       sections: {
         orderBy: { sortOrder: "asc" },
-        include: { questions: { orderBy: { sortOrder: "asc" } } },
+        include: {
+          questions: { orderBy: { sortOrder: "asc" } },
+          translations: true,
+        },
       },
     },
   });
@@ -40,13 +47,37 @@ export default async function QuestionnairePage() {
         include: {
           sections: {
             orderBy: { sortOrder: "asc" },
-            include: { questions: { orderBy: { sortOrder: "asc" } } },
+            include: {
+              questions: {
+                orderBy: { sortOrder: "asc" },
+                include: { translations: true },
+              },
+              translations: true,
+            },
           },
         },
       })
     : null;
 
   const sections = refreshed?.sections ?? [];
+
+  const sectionTranslations = sections.flatMap((section) => section.translations);
+  const questionTranslations = sections.flatMap((section) =>
+    section.questions.flatMap((question) => question.translations),
+  );
+
+  const translationBundles = buildLocaleTranslationBundles(
+    sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      questions: section.questions.map((question) => ({
+        id: question.id,
+        text: question.text,
+      })),
+    })),
+    sectionTranslations,
+    questionTranslations,
+  );
 
   return (
     <>
@@ -74,6 +105,10 @@ export default async function QuestionnairePage() {
         )}
       </PageHeader>
 
+      {refreshed && (
+        <QuestionnaireTranslationsPanel bundles={translationBundles} hasContent={sections.length > 0} />
+      )}
+
       <Card className="mb-6">
         <h2 className="font-medium text-slate-900">Add section</h2>
         <form action={addSection} className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -94,9 +129,20 @@ export default async function QuestionnairePage() {
           return (
             <Card key={section.id}>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-slate-500">Section {sectionIndex + 1}</p>
-                  <h3 className="text-lg font-medium text-slate-900">{section.title}</h3>
+                  <form action={updateSectionTitle} className="mt-1 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="id" value={section.id} />
+                    <input
+                      name="title"
+                      defaultValue={section.title}
+                      required
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-lg font-medium text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                    />
+                    <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
+                      Save title
+                    </Button>
+                  </form>
                 </div>
                 <div className="flex gap-1">
                   <form action={moveSection}>
@@ -149,7 +195,19 @@ export default async function QuestionnairePage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 text-sm text-slate-900">{q.text}</p>
+                      <form action={updateQuestionText} className="mt-2 flex flex-wrap items-end gap-2">
+                        <input type="hidden" name="id" value={q.id} />
+                        <textarea
+                          name="text"
+                          defaultValue={q.text}
+                          required
+                          rows={2}
+                          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                        />
+                        <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
+                          Save
+                        </Button>
+                      </form>
                     </div>
                     <div className="flex gap-1">
                       <form action={moveQuestion}>

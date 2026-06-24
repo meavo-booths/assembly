@@ -8,6 +8,10 @@ import { hashSecret } from "@/lib/password";
 import { importAssembliesFromSheet } from "@/lib/sheets-import";
 import { slugifyPartnerName } from "@/lib/slug";
 import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
+import {
+  markQuestionTranslationsStale,
+  markSectionTranslationsStale,
+} from "@/lib/questionnaire-translation-status";
 
 export async function refreshFromSheet(): Promise<{ imported: number; partnersCreated: number }> {
   await requireMeavoAccess();
@@ -94,6 +98,40 @@ export async function addSection(formData: FormData): Promise<void> {
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
+  revalidatePath("/questionnaire");
+}
+
+export async function updateSectionTitle(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const id = String(formData.get("id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  if (!id || !title) return;
+
+  const section = await prisma.questionnaireSection.findUnique({ where: { id } });
+  if (!section || section.title === title) return;
+
+  await prisma.questionnaireSection.update({
+    where: { id },
+    data: { title },
+  });
+  await markSectionTranslationsStale(id);
+  revalidatePath("/questionnaire");
+}
+
+export async function updateQuestionText(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const id = String(formData.get("id") ?? "");
+  const text = String(formData.get("text") ?? "").trim();
+  if (!id || !text) return;
+
+  const question = await prisma.question.findUnique({ where: { id } });
+  if (!question || question.text === text) return;
+
+  await prisma.question.update({
+    where: { id },
+    data: { text },
+  });
+  await markQuestionTranslationsStale(id);
   revalidatePath("/questionnaire");
 }
 
