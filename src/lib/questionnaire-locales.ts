@@ -108,6 +108,34 @@ export function getFullyApprovedLocales(
   return locales;
 }
 
+export function getFullyTranslatedLocales(
+  sectionCount: number,
+  questionCount: number,
+  sectionCounts: Partial<Record<QuestionnaireLocale, number>>,
+  questionCounts: Partial<Record<QuestionnaireLocale, number>>,
+): QuestionnaireLocale[] {
+  const locales: QuestionnaireLocale[] = [QuestionnaireLocale.EN];
+  if (sectionCount === 0) return locales;
+
+  for (const locale of TARGET_QUESTIONNAIRE_LOCALES) {
+    if (sectionCounts[locale] === sectionCount && questionCounts[locale] === questionCount) {
+      locales.push(locale);
+    }
+  }
+
+  return locales;
+}
+
+export function resolvePreviewLocale(
+  requested: QuestionnaireLocale | null,
+  availableLocales: QuestionnaireLocale[],
+): QuestionnaireLocale {
+  if (requested && availableLocales.includes(requested)) {
+    return requested;
+  }
+  return QuestionnaireLocale.EN;
+}
+
 export type TranslationLookup = {
   sections: Record<string, string>;
   questions: Record<string, string>;

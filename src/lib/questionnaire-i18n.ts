@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import {
   buildTranslationLookup,
   getFullyApprovedLocales,
+  getFullyTranslatedLocales,
   parseQuestionnaireLocaleParam,
+  resolvePreviewLocale,
   resolveQuestionnaireLocale,
   type TranslationLookup,
 } from "@/lib/questionnaire-locales";
@@ -11,74 +13,121 @@ import { mapQuestionnaireSections, type SectionRecord } from "@/lib/questionnair
 
 type DbSection = Parameters<typeof mapQuestionnaireSections>[0];
 
+type LoadOptions = {
+  langParam?: string;
+  cookieLang?: string;
+  acceptLanguage?: string | null;
+  context?: "partner" | "preview";
+  previewPartnerView?: boolean;
+};
+
 export async function loadLocalizedQuestionnaireSections(
   sections: DbSection,
-  options: {
-    langParam?: string;
-    cookieLang?: string;
-    acceptLanguage?: string | null;
-  },
+  options: LoadOptions = {},
 ): Promise<{
   sections: SectionRecord[];
   locale: QuestionnaireLocale;
   availableLocales: QuestionnaireLocale[];
+  approvedLocales: QuestionnaireLocale[];
 }> {
+  const context = options.context ?? "partner";
+  const partnerView = context === "partner" || options.previewPartnerView === true;
+
   const sectionIds = sections.map((section) => section.id);
   const questionIds = sections.flatMap((section) => section.questions.map((q) => q.id));
+  const sectionCount = sectionIds.length;
+  const questionCount = questionIds.length;
 
-  const [sectionCounts, questionCounts] = await Promise.all([
-    sectionIds.length > 0
-      ? prisma.questionnaireSectionTranslation.groupBy({
-          by: ["locale"],
-          where: {
-            sectionId: { in: sectionIds },
-            status: TranslationStatus.APPROVED,
-          },
-          _count: { sectionId: true },
-        })
-      : Promise.resolve([]),
-    questionIds.length > 0
-      ? prisma.questionTranslation.groupBy({
-          by: ["locale"],
-          where: {
-            questionId: { in: questionIds },
-            status: TranslationStatus.APPROVED,
-          },
-          _count: { questionId: true },
-        })
-      : Promise.resolve([]),
-  ]);
+  const [approvedSectionCounts, approvedQuestionCounts, allSectionCounts, allQuestionCounts] =
+    await Promise.all([
+      sectionIds.length > 0
+        ? prisma.questionnaireSectionTranslation.groupBy({
+            by: ["locale"],
+            where: {
+              sectionId: { in: sectionIds },
+              status: TranslationStatus.APPROVED,
+            },
+            _count: { sectionId: true },
+          })
+        : Promise.resolve([]),
+      questionIds.length > 0
+        ? prisma.questionTranslation.groupBy({
+            by: ["locale"],
+            where: {
+              questionId: { in: questionIds },
+              status: TranslationStatus.APPROVED,
+            },
+            _count: { questionId: true },
+          })
+        : Promise.resolve([]),
+      sectionIds.length > 0
+        ? prisma.questionnaireSectionTranslation.groupBy({
+            by: ["locale"],
+            where: { sectionId: { in: sectionIds } },
+            _count: { sectionId: true },
+          })
+        : Promise.resolve([]),
+      questionIds.length > 0
+        ? prisma.questionTranslation.groupBy({
+            by: ["locale"],
+            where: { questionId: { in: questionIds } },
+            _count: { questionId: true },
+          })
+        : Promise.resolve([]),
+    ]);
 
-  const approvedSectionCounts = Object.fromEntries(
-    sectionCounts.map((row) => [row.locale, row._count.sectionId]),
+  const approvedSectionCountsMap = Object.fromEntries(
+    approvedSectionCounts.map((row) => [row.locale, row._count.sectionId]),
   ) as Partial<Record<QuestionnaireLocale, number>>;
 
-  const approvedQuestionCounts = Object.fromEntries(
-    questionCounts.map((row) => [row.locale, row._count.questionId]),
+  const approvedQuestionCountsMap = Object.fromEntries(
+    approvedQuestionCounts.map((row) => [row.locale, row._count.questionId]),
   ) as Partial<Record<QuestionnaireLocale, number>>;
 
-  const availableLocales = getFullyApprovedLocales(
-    sectionIds.length,
-    questionIds.length,
-    approvedSectionCounts,
-    approvedQuestionCounts,
+  const allSectionCountsMap = Object.fromEntries(
+    allSectionCounts.map((row) => [row.locale, row._count.sectionId]),
+  ) as Partial<Record<QuestionnaireLocale, number>>;
+
+  const allQuestionCountsMap = Object.fromEntries(
+    allQuestionCounts.map((row) => [row.locale, row._count.questionId]),
+  ) as Partial<Record<QuestionnaireLocale, number>>;
+
+  const approvedLocales = getFullyApprovedLocales(
+    sectionCount,
+    questionCount,
+    approvedSectionCountsMap,
+    approvedQuestionCountsMap,
   );
 
-  const locale = resolveQuestionnaireLocale(
-    parseQuestionnaireLocaleParam(options.langParam),
-    options.acceptLanguage ?? null,
-    options.cookieLang,
-    availableLocales,
-  );
+  const availableLocales = partnerView
+    ? approvedLocales
+    : getFullyTranslatedLocales(
+        sectionCount,
+        questionCount,
+        allSectionCountsMap,
+        allQuestionCountsMap,
+      );
+
+  const requested = parseQuestionnaireLocaleParam(options.langParam);
+  const locale =
+    context === "preview"
+      ? resolvePreviewLocale(requested, availableLocales)
+      : resolveQuestionnaireLocale(
+          requested,
+          options.acceptLanguage ?? null,
+          options.cookieLang,
+          availableLocales,
+        );
 
   let translations: TranslationLookup | undefined;
   if (locale !== QuestionnaireLocale.EN && sectionIds.length > 0) {
+    const statusFilter = partnerView ? TranslationStatus.APPROVED : undefined;
     const [sectionTranslations, questionTranslations] = await Promise.all([
       prisma.questionnaireSectionTranslation.findMany({
         where: {
           sectionId: { in: sectionIds },
           locale,
-          status: TranslationStatus.APPROVED,
+          ...(statusFilter ? { status: statusFilter } : {}),
         },
         select: { sectionId: true, title: true },
       }),
@@ -87,7 +136,7 @@ export async function loadLocalizedQuestionnaireSections(
             where: {
               questionId: { in: questionIds },
               locale,
-              status: TranslationStatus.APPROVED,
+              ...(statusFilter ? { status: statusFilter } : {}),
             },
             select: { questionId: true, text: true },
           })
@@ -100,5 +149,6 @@ export async function loadLocalizedQuestionnaireSections(
     sections: mapQuestionnaireSections(sections, locale, translations),
     locale,
     availableLocales,
+    approvedLocales,
   };
 }

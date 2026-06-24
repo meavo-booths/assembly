@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { QuestionnaireLocale, TranslationStatus } from "@prisma/client";
 import {
   approveLocaleTranslations,
+  generateLocaleTranslations,
   generateQuestionnaireTranslations,
   saveLocaleTranslations,
 } from "@/app/actions/questionnaire-translations";
@@ -76,9 +78,12 @@ export function QuestionnaireTranslationsPanel({
   bundles: LocaleTranslationBundle[];
   hasContent: boolean;
 }) {
+  const router = useRouter();
   const [activeLocale, setActiveLocale] = useState<QuestionnaireLocale>(QuestionnaireLocale.DE);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const [isGenerating, startGenerate] = useTransition();
+  const [isRegenerating, startRegenerate] = useTransition();
 
   const active = bundles.find((bundle) => bundle.locale === activeLocale) ?? bundles[0];
   if (!active) return null;
@@ -93,6 +98,20 @@ export function QuestionnaireTranslationsPanel({
       const result = await generateQuestionnaireTranslations();
       if (!result.ok) {
         setGenerateError(result.error ?? "Generation failed.");
+      } else {
+        router.refresh();
+      }
+    });
+  }
+
+  function handleRegenerateLocale() {
+    setRegenerateError(null);
+    startRegenerate(async () => {
+      const result = await generateLocaleTranslations(active.locale);
+      if (!result.ok) {
+        setRegenerateError(result.error ?? "Regeneration failed.");
+      } else {
+        router.refresh();
       }
     });
   }
@@ -147,6 +166,21 @@ export function QuestionnaireTranslationsPanel({
         </p>
       ) : (
         <>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium text-slate-900">
+              {LOCALE_NAMES[active.locale]} translations
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleRegenerateLocale}
+              disabled={isRegenerating || isGenerating}
+            >
+              {isRegenerating ? "Regenerating…" : `Regenerate ${LOCALE_NAMES[active.locale]}`}
+            </Button>
+          </div>
+          {regenerateError && <p className="mt-2 text-sm text-red-600">{regenerateError}</p>}
+
           {active.status === "stale" && (
             <p className="mt-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
               English changed for {staleSummary(active)}. Review the highlighted items below, then

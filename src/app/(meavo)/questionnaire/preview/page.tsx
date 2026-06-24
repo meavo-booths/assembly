@@ -1,12 +1,20 @@
+import { Suspense } from "react";
 import { QuestionnaireLocale } from "@prisma/client";
 import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
-import { mapQuestionnaireSections } from "@/lib/questionnaire";
+import { loadLocalizedQuestionnaireSections } from "@/lib/questionnaire-i18n";
 import { prisma } from "@/lib/prisma";
-import { QuestionnaireWizard } from "@/components/questionnaire-wizard";
+import { QuestionnairePreview } from "@/components/questionnaire-preview";
 
 export const dynamic = "force-dynamic";
 
-export default async function QuestionnairePreviewPage() {
+export default async function QuestionnairePreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string; mode?: string }>;
+}) {
+  const { lang, mode } = await searchParams;
+  const partnerView = mode === "partner";
+
   const questionnaire = await prisma.questionnaire.findFirst({
     orderBy: { createdAt: "asc" },
     include: {
@@ -33,30 +41,29 @@ export default async function QuestionnairePreviewPage() {
       })
     : null;
 
-  const sections = mapQuestionnaireSections(refreshed?.sections ?? []);
+  const localized = refreshed
+    ? await loadLocalizedQuestionnaireSections(refreshed.sections, {
+        langParam: lang,
+        context: "preview",
+        previewPartnerView: partnerView,
+      })
+    : {
+        sections: [],
+        locale: QuestionnaireLocale.EN,
+        availableLocales: [QuestionnaireLocale.EN],
+        approvedLocales: [QuestionnaireLocale.EN],
+      };
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">Preview</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Walk through the current questionnaire as a partner would. Nothing is saved.
-        </p>
-      </div>
-
-      {refreshed && !refreshed.isPublished && (
-        <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          This questionnaire is <span className="font-medium">not published</span> yet. Partners will not see it until
-          you publish.
-        </p>
-      )}
-
-      <QuestionnaireWizard
-        preview
-        sections={sections}
-        locale={QuestionnaireLocale.EN}
-        availableLocales={[QuestionnaireLocale.EN]}
+    <Suspense fallback={<p className="text-sm text-slate-500">Loading preview…</p>}>
+      <QuestionnairePreview
+        sections={localized.sections}
+        locale={localized.locale}
+        availableLocales={localized.availableLocales}
+        approvedLocales={localized.approvedLocales}
+        partnerView={partnerView}
+        isPublished={refreshed?.isPublished ?? false}
       />
-    </div>
+    </Suspense>
   );
 }
