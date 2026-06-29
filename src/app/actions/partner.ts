@@ -6,7 +6,7 @@ import { SubmissionStatus } from "@prisma/client";
 import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { verifySecret } from "@/lib/password";
-import { setPartnerSession, clearPartnerSession } from "@/lib/partner-session";
+import { setPartnerSession, clearPartnerSession, requirePartnerSession } from "@/lib/partner-session";
 
 export async function partnerLogin(slug: string, formData: FormData): Promise<{ error?: string }> {
   const code = String(formData.get("code") ?? "").trim();
@@ -31,19 +31,25 @@ export async function partnerLogout(slug: string): Promise<void> {
   redirect(`/${slug}`);
 }
 
+async function requirePartnerAssembly(slug: string, dealId: string) {
+  const partner = await requirePartnerSession(slug);
+  if (!partner) throw new Error("Unauthorized");
+
+  const assembly = await prisma.assembly.findFirst({
+    where: { dealId, installPartnerId: partner.id },
+  });
+  if (!assembly) throw new Error("Assembly not found");
+
+  return { partner, assembly };
+}
+
 export async function saveQuestionAnswer(
   slug: string,
   dealId: string,
   questionId: string,
   answer: { checked?: boolean; textAnswer?: string; yesNoAnswer?: boolean },
 ): Promise<void> {
-  const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
-  if (!partner) throw new Error("Partner not found");
-
-  const assembly = await prisma.assembly.findFirst({
-    where: { dealId, installPartnerId: partner.id },
-  });
-  if (!assembly) throw new Error("Assembly not found");
+  const { partner, assembly } = await requirePartnerAssembly(slug, dealId);
 
   const submission = await prisma.questionnaireSubmission.upsert({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
@@ -52,10 +58,11 @@ export async function saveQuestionAnswer(
       partnerId: partner.id,
       status: SubmissionStatus.IN_PROGRESS,
     },
-    update: {
-      status: SubmissionStatus.IN_PROGRESS,
-    },
+    update: {},
   });
+  if (submission.status === SubmissionStatus.SUBMITTED) {
+    throw new Error("Questionnaire already submitted");
+  }
 
   const data =
     answer.yesNoAnswer !== undefined
@@ -78,13 +85,14 @@ export async function uploadSubmissionPhotos(
   dealId: string,
   formData: FormData,
 ): Promise<{ error?: string }> {
-  const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
-  if (!partner) return { error: "Partner not found." };
-
-  const assembly = await prisma.assembly.findFirst({
-    where: { dealId, installPartnerId: partner.id },
-  });
-  if (!assembly) return { error: "Assembly not found." };
+  let partnerAssembly: Awaited<ReturnType<typeof requirePartnerAssembly>>;
+  try {
+    partnerAssembly = await requirePartnerAssembly(slug, dealId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unauthorized";
+    return { error: message };
+  }
+  const { partner, assembly } = partnerAssembly;
 
   const submission = await prisma.questionnaireSubmission.upsert({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
@@ -95,6 +103,9 @@ export async function uploadSubmissionPhotos(
     },
     update: {},
   });
+  if (submission.status === SubmissionStatus.SUBMITTED) {
+    return { error: "Questionnaire already submitted." };
+  }
 
   const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { error: "Please select at least one photo." };
@@ -127,13 +138,7 @@ export async function uploadSubmissionPhotos(
 }
 
 export async function submitQuestionnaire(slug: string, dealId: string): Promise<void> {
-  const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
-  if (!partner) throw new Error("Partner not found");
-
-  const assembly = await prisma.assembly.findFirst({
-    where: { dealId, installPartnerId: partner.id },
-  });
-  if (!assembly) throw new Error("Assembly not found");
+  const { partner, assembly } = await requirePartnerAssembly(slug, dealId);
 
   await prisma.questionnaireSubmission.upsert({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
