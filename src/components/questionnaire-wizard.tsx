@@ -10,7 +10,8 @@ import {
 } from "@/lib/questionnaire";
 import { getQuestionnaireUiCopy } from "@/lib/questionnaire-ui";
 import { saveQuestionAnswer, submitQuestionnaire, uploadSubmissionPhotos } from "@/app/actions/partner";
-import { MAX_PHOTO_BYTES, MAX_PHOTO_ERROR } from "@/lib/upload-limits";
+import { COMPRESS_PHOTO_ERROR, compressPhotoForUpload } from "@/lib/compress-photo";
+import { MAX_SOURCE_PHOTO_BYTES, MAX_SOURCE_PHOTO_ERROR } from "@/lib/upload-limits";
 import { QuestionnaireLanguagePicker } from "@/components/questionnaire-language-picker";
 import { Button, Card } from "@/components/ui";
 
@@ -39,6 +40,7 @@ export function QuestionnaireWizard({
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState(initialAnswers);
   const [pending, startTransition] = useTransition();
+  const [compressing, setCompressing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewComplete, setPreviewComplete] = useState(false);
@@ -347,14 +349,30 @@ export function QuestionnaireWizard({
                 const files = formData
                   .getAll("photos")
                   .filter((f): f is File => f instanceof File && f.size > 0);
-                if (files.some((f) => f.size > MAX_PHOTO_BYTES)) {
-                  setError(MAX_PHOTO_ERROR);
+                if (files.some((f) => f.size > MAX_SOURCE_PHOTO_BYTES)) {
+                  setError(MAX_SOURCE_PHOTO_ERROR);
                   return;
+                }
+
+                setCompressing(true);
+                let compressedFiles: File[];
+                try {
+                  compressedFiles = await Promise.all(files.map(compressPhotoForUpload));
+                } catch {
+                  setError(COMPRESS_PHOTO_ERROR);
+                  return;
+                } finally {
+                  setCompressing(false);
+                }
+
+                const compressedFormData = new FormData();
+                for (const file of compressedFiles) {
+                  compressedFormData.append("photos", file);
                 }
 
                 setUploading(true);
                 try {
-                  const upload = await uploadSubmissionPhotos(slug, dealId, formData);
+                  const upload = await uploadSubmissionPhotos(slug, dealId, compressedFormData);
                   if (upload.error) {
                     setError(upload.error);
                     return;
@@ -373,14 +391,15 @@ export function QuestionnaireWizard({
                 multiple
                 className="block w-full text-sm"
               />
+              <p className="text-xs text-slate-500">{ui.photosCompressHint}</p>
               {hasPhotos && <p className="text-xs text-slate-500">{ui.photosAddMore}</p>}
               {error && <p className="text-sm text-red-600">{error}</p>}
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
                   {ui.back}
                 </Button>
-                <Button type="submit" className="flex-1" disabled={uploading}>
-                  {uploading ? ui.submitting : ui.submit}
+                <Button type="submit" className="flex-1" disabled={compressing || uploading}>
+                  {compressing ? ui.compressing : uploading ? ui.submitting : ui.submit}
                 </Button>
               </div>
             </form>

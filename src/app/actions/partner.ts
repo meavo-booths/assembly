@@ -7,7 +7,7 @@ import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { verifySecret } from "@/lib/password";
 import { setPartnerSession, clearPartnerSession, requirePartnerSession } from "@/lib/partner-session";
-import { MAX_PHOTO_BYTES, MAX_PHOTO_ERROR } from "@/lib/upload-limits";
+import { MAX_UPLOAD_PHOTO_BYTES, MAX_UPLOAD_PHOTO_ERROR } from "@/lib/upload-limits";
 
 async function requireAuthenticatedPartner(slug: string) {
   const partner = await requirePartnerSession(slug);
@@ -109,8 +109,8 @@ export async function uploadSubmissionPhotos(
   const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { error: "Please select at least one photo." };
 
-  const oversized = files.find((f) => f.size > MAX_PHOTO_BYTES);
-  if (oversized) return { error: MAX_PHOTO_ERROR };
+  const oversized = files.find((f) => f.size > MAX_UPLOAD_PHOTO_BYTES);
+  if (oversized) return { error: MAX_UPLOAD_PHOTO_ERROR };
 
   const existingCount = await prisma.submissionPhoto.count({ where: { submissionId: submission.id } });
 
@@ -120,6 +120,7 @@ export async function uploadSubmissionPhotos(
       const blob = await put(`assembly/${assembly.dealId}/${file.name}`, file, {
         access: "private",
         addRandomSuffix: true,
+        contentType: file.type || "image/jpeg",
       });
       await prisma.submissionPhoto.create({
         data: {

@@ -12,6 +12,8 @@ export type QuestionnaireUiCopy = {
   photosTitle: string;
   photosDescription: string;
   photosAddMore: string;
+  photosCompressHint: string;
+  compressing: string;
   submitting: string;
   submit: string;
   completePreview: string;
@@ -41,6 +43,8 @@ const EN: QuestionnaireUiCopy = {
   photosDescription:
     "Attach photos of the completed assembly (booth exterior, interior, and any issues).",
   photosAddMore: "You can add more photos before submitting.",
+  photosCompressHint: "Large photos are automatically compressed before upload.",
+  compressing: "Compressing…",
   submitting: "Submitting…",
   submit: "Submit",
   completePreview: "Complete preview",
