@@ -6,7 +6,13 @@ import { SubmissionStatus } from "@prisma/client";
 import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { verifySecret } from "@/lib/password";
-import { setPartnerSession, clearPartnerSession } from "@/lib/partner-session";
+import { setPartnerSession, clearPartnerSession, requirePartnerSession } from "@/lib/partner-session";
+
+async function requireAuthenticatedPartner(slug: string) {
+  const partner = await requirePartnerSession(slug);
+  if (!partner) throw new Error("Unauthorized");
+  return partner;
+}
 
 export async function partnerLogin(slug: string, formData: FormData): Promise<{ error?: string }> {
   const code = String(formData.get("code") ?? "").trim();
@@ -37,8 +43,7 @@ export async function saveQuestionAnswer(
   questionId: string,
   answer: { checked?: boolean; textAnswer?: string; yesNoAnswer?: boolean },
 ): Promise<void> {
-  const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
-  if (!partner) throw new Error("Partner not found");
+  const partner = await requireAuthenticatedPartner(slug);
 
   const assembly = await prisma.assembly.findFirst({
     where: { dealId, installPartnerId: partner.id },
@@ -78,8 +83,12 @@ export async function uploadSubmissionPhotos(
   dealId: string,
   formData: FormData,
 ): Promise<{ error?: string }> {
-  const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
-  if (!partner) return { error: "Partner not found." };
+  let partner;
+  try {
+    partner = await requireAuthenticatedPartner(slug);
+  } catch {
+    return { error: "Unauthorized." };
+  }
 
   const assembly = await prisma.assembly.findFirst({
     where: { dealId, installPartnerId: partner.id },
@@ -127,8 +136,7 @@ export async function uploadSubmissionPhotos(
 }
 
 export async function submitQuestionnaire(slug: string, dealId: string): Promise<void> {
-  const partner = await prisma.assemblyPartner.findFirst({ where: { slug, isActive: true } });
-  if (!partner) throw new Error("Partner not found");
+  const partner = await requireAuthenticatedPartner(slug);
 
   const assembly = await prisma.assembly.findFirst({
     where: { dealId, installPartnerId: partner.id },
