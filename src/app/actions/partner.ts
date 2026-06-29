@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { verifySecret } from "@/lib/password";
 import { setPartnerSession, clearPartnerSession, requirePartnerSession } from "@/lib/partner-session";
 import { MAX_UPLOAD_PHOTO_BYTES, MAX_UPLOAD_PHOTO_ERROR } from "@/lib/upload-limits";
+import { enqueueNotification } from "@/lib/notifications/enqueue";
 
 async function requireAuthenticatedPartner(slug: string) {
   const partner = await requirePartnerSession(slug);
@@ -148,7 +149,7 @@ export async function submitQuestionnaire(slug: string, dealId: string): Promise
   });
   if (!assembly) throw new Error("Assembly not found");
 
-  await prisma.questionnaireSubmission.upsert({
+  const submission = await prisma.questionnaireSubmission.upsert({
     where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
     create: {
       assemblyId: assembly.id,
@@ -160,6 +161,26 @@ export async function submitQuestionnaire(slug: string, dealId: string): Promise
       status: SubmissionStatus.SUBMITTED,
       submittedAt: new Date(),
     },
+  });
+
+  const partnerRecord = await prisma.assemblyPartner.findUnique({
+    where: { id: partner.id },
+    select: { name: true },
+  });
+
+  void enqueueNotification({
+    sourceApp: "assembly",
+    eventType: "assembly.questionnaire.submitted",
+    idempotencyKey: `assembly:questionnaire:submitted:${submission.id}`,
+    payload: {
+      submissionId: submission.id,
+      dealId: assembly.dealId,
+      assemblyId: assembly.id,
+      partnerName: partnerRecord?.name ?? slug,
+      clientName: assembly.clientName,
+    },
+  }).catch((error) => {
+    console.error("Notification enqueue failed:", error);
   });
 
   revalidatePath(`/${slug}`);
