@@ -480,6 +480,7 @@ enum ResourceType {
   PDF
   YOUTUBE
   LINK
+  IMAGE
 }
 
 model Resource {
@@ -487,9 +488,6 @@ model Resource {
   title          String
   description    String       @default("")
   type           ResourceType
-  storageKey     String?
-  fileName       String?
-  mimeType       String?
   youtubeUrl     String?
   youtubeVideoId String?
   linkUrl        String?
@@ -498,8 +496,22 @@ model Resource {
   updatedAt      DateTime     @updatedAt
 
   models ResourceBoothModel[]
+  files  ResourceFile[]
 
   @@index([sortOrder])
+}
+
+model ResourceFile {
+  id         String   @id @default(cuid())
+  resourceId String
+  storageKey String
+  fileName   String
+  mimeType   String
+  createdAt  DateTime @default(now())
+
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@index([resourceId])
 }
 
 model ResourceBoothModel {

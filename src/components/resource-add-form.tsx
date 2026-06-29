@@ -6,7 +6,7 @@ import { BOOTH_MODEL_GROUPS } from "@/lib/booth-models";
 import { createResource } from "@/app/actions/resources";
 import { Button, Input } from "@/components/ui";
 
-type ResourceFormType = "PDF" | "YOUTUBE" | "LINK";
+type ResourceFormType = "PDF" | "IMAGE" | "YOUTUBE" | "LINK";
 
 export function ResourceAddForm() {
   const router = useRouter();
@@ -44,6 +44,7 @@ export function ResourceAddForm() {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
           >
             <option value="PDF">PDF guide</option>
+            <option value="IMAGE">Image gallery</option>
             <option value="YOUTUBE">YouTube video</option>
             <option value="LINK">Link</option>
           </select>
@@ -62,14 +63,35 @@ export function ResourceAddForm() {
 
       {type === "PDF" && (
         <label className="block space-y-1 text-sm">
-          <span className="font-medium text-slate-700">PDF file</span>
+          <span className="font-medium text-slate-700">PDF files</span>
           <input
-            name="file"
+            name="files"
             type="file"
             accept="application/pdf,.pdf"
+            multiple
             required
             className="block w-full text-sm text-slate-600"
           />
+          <p className="text-xs text-slate-500">
+            You can select multiple files. Max 25 MB per PDF.
+          </p>
+        </label>
+      )}
+
+      {type === "IMAGE" && (
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-slate-700">Images</span>
+          <input
+            name="files"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            required
+            className="block w-full text-sm text-slate-600"
+          />
+          <p className="text-xs text-slate-500">
+            You can select multiple files. JPEG, PNG, WebP, or GIF — max 10 MB each.
+          </p>
         </label>
       )}
 

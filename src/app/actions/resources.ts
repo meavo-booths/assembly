@@ -6,7 +6,47 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { parseBoothModels, parseYoutubeVideoId } from "@/lib/booth-models";
-import { parseHttpUrl } from "@/lib/resources";
+import { parseHttpUrl, RESOURCE_IMAGE_MIME_TYPES } from "@/lib/resources";
+import {
+  MAX_RESOURCE_FILES,
+  MAX_RESOURCE_IMAGE_BYTES,
+  MAX_RESOURCE_IMAGE_ERROR,
+  MAX_RESOURCE_PDF_BYTES,
+  MAX_RESOURCE_PDF_ERROR,
+} from "@/lib/upload-limits";
+
+function getUploadedFiles(formData: FormData): File[] {
+  return formData
+    .getAll("files")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+}
+
+async function uploadResourceFiles(
+  files: File[],
+  maxBytes: number,
+  maxError: string,
+): Promise<{ storageKey: string; fileName: string; mimeType: string }[]> {
+  const uploaded: { storageKey: string; fileName: string; mimeType: string }[] = [];
+
+  for (const file of files) {
+    if (file.size > maxBytes) {
+      throw new Error(maxError);
+    }
+
+    const blob = await put(`resources/${file.name}`, file, {
+      access: "private",
+      addRandomSuffix: true,
+    });
+
+    uploaded.push({
+      storageKey: blob.pathname,
+      fileName: file.name,
+      mimeType: file.type,
+    });
+  }
+
+  return uploaded;
+}
 
 export async function createResource(formData: FormData): Promise<{ error?: string }> {
   await requireMeavoAccess();
@@ -23,31 +63,76 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
   const sortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
 
   if (type === "PDF") {
-    const file = formData.get("file");
-    if (!(file instanceof File) || file.size === 0) {
-      return { error: "Please choose a PDF file." };
+    const files = getUploadedFiles(formData);
+    if (files.length === 0) return { error: "Please choose at least one PDF file." };
+    if (files.length > MAX_RESOURCE_FILES) {
+      return { error: `You can upload up to ${MAX_RESOURCE_FILES} files at once.` };
+    }
+
+    for (const file of files) {
+      if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+        return { error: "All files must be PDFs." };
+      }
     }
 
     try {
-      const blob = await put(`resources/${file.name}`, file, {
-        access: "private",
-        addRandomSuffix: true,
-      });
+      const uploaded = await uploadResourceFiles(files, MAX_RESOURCE_PDF_BYTES, MAX_RESOURCE_PDF_ERROR);
 
       await prisma.resource.create({
         data: {
           title,
           description,
           type: ResourceType.PDF,
-          storageKey: blob.pathname,
-          fileName: file.name,
-          mimeType: file.type || "application/pdf",
           sortOrder,
           models: { create: models.map((boothModel) => ({ boothModel })) },
+          files: {
+            create: uploaded.map((file) => ({
+              storageKey: file.storageKey,
+              fileName: file.fileName,
+              mimeType: file.mimeType || "application/pdf",
+            })),
+          },
         },
       });
-    } catch {
-      return { error: "Failed to upload PDF. Try again." };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload PDF. Try again.";
+      return { error: message };
+    }
+  } else if (type === "IMAGE") {
+    const files = getUploadedFiles(formData);
+    if (files.length === 0) return { error: "Please choose at least one image." };
+    if (files.length > MAX_RESOURCE_FILES) {
+      return { error: `You can upload up to ${MAX_RESOURCE_FILES} files at once.` };
+    }
+
+    for (const file of files) {
+      if (!RESOURCE_IMAGE_MIME_TYPES.has(file.type)) {
+        return { error: "Images must be JPEG, PNG, WebP, or GIF." };
+      }
+    }
+
+    try {
+      const uploaded = await uploadResourceFiles(files, MAX_RESOURCE_IMAGE_BYTES, MAX_RESOURCE_IMAGE_ERROR);
+
+      await prisma.resource.create({
+        data: {
+          title,
+          description,
+          type: ResourceType.IMAGE,
+          sortOrder,
+          models: { create: models.map((boothModel) => ({ boothModel })) },
+          files: {
+            create: uploaded.map((file) => ({
+              storageKey: file.storageKey,
+              fileName: file.fileName,
+              mimeType: file.mimeType,
+            })),
+          },
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload images. Try again.";
+      return { error: message };
     }
   } else if (type === "YOUTUBE") {
     const youtubeUrl = String(formData.get("youtubeUrl") ?? "").trim();
@@ -80,7 +165,7 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
       },
     });
   } else {
-    return { error: "Choose PDF, YouTube, or Link." };
+    return { error: "Choose PDF, Image, YouTube, or Link." };
   }
 
   revalidatePath("/resources");
@@ -93,12 +178,15 @@ export async function deleteResource(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const resource = await prisma.resource.findUnique({ where: { id } });
+  const resource = await prisma.resource.findUnique({
+    where: { id },
+    include: { files: true },
+  });
   if (!resource) return;
 
-  if (resource.type === ResourceType.PDF && resource.storageKey) {
+  for (const file of resource.files) {
     try {
-      await del(resource.storageKey);
+      await del(file.storageKey);
     } catch {
       // Blob may already be gone; still remove DB row.
     }

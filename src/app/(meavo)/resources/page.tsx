@@ -3,7 +3,7 @@ import { ResourceType } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 import { boothModelLabel } from "@/lib/booth-models";
-import { resourceTypeLabel } from "@/lib/resources";
+import { resourceFileCountLabel, resourceTypeLabel } from "@/lib/resources";
 import { deleteResource, moveResource } from "@/app/actions/resources";
 import { ResourceAddForm } from "@/components/resource-add-form";
 import { Button, Card, PageHeader } from "@/components/ui";
@@ -15,7 +15,7 @@ export default async function ResourcesPage() {
 
   const resources = await prisma.resource.findMany({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    include: { models: true },
+    include: { models: true, files: true },
   });
 
   return (
@@ -63,9 +63,10 @@ export default async function ResourcesPage() {
                     </span>
                   ))}
                 </div>
-                {resource.type === ResourceType.PDF && resource.fileName && (
-                  <p className="mt-2 text-xs text-slate-500">{resource.fileName}</p>
-                )}
+                {(() => {
+                  const fileLabel = resourceFileCountLabel(resource.type, resource.files.length);
+                  return fileLabel ? <p className="mt-2 text-xs text-slate-500">{fileLabel}</p> : null;
+                })()}
                 {resource.type === ResourceType.YOUTUBE && resource.youtubeUrl && (
                   <p className="mt-2 truncate text-xs text-slate-500">{resource.youtubeUrl}</p>
                 )}
@@ -110,7 +111,7 @@ export default async function ResourcesPage() {
         ))}
         {resources.length === 0 && (
           <Card>
-            <p className="text-sm text-slate-600">No resources yet. Add a PDF, YouTube video, or link above.</p>
+            <p className="text-sm text-slate-600">No resources yet. Add a PDF, image gallery, YouTube video, or link above.</p>
           </Card>
         )}
       </div>
