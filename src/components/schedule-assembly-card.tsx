@@ -8,9 +8,13 @@ import { Button, Card } from "@/components/ui";
 export function ScheduleAssemblyCard({
   options,
   markets,
+  deliveryCompanies,
+  installCompanies,
 }: {
   options: SheetDropdownOptions;
   markets: string[];
+  deliveryCompanies: string[];
+  installCompanies: string[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -34,6 +38,8 @@ export function ScheduleAssemblyCard({
             mode="create"
             options={options}
             markets={markets}
+            deliveryCompanies={deliveryCompanies}
+            installCompanies={installCompanies}
             onSuccess={() => setOpen(false)}
           />
         </div>

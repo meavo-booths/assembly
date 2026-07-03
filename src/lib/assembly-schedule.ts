@@ -34,6 +34,16 @@ export const ISSUE_OPTIONS: { value: IssueValue; label: string }[] = [
 
 export const DEFAULT_ISSUE: IssueValue = "PENDING";
 
+export const CLIENT_TYPE_OPTIONS = [
+  "Direct",
+  "Agency",
+  "CoWorking",
+  "Showroom",
+  "Other",
+] as const;
+
+export type ClientTypeValue = (typeof CLIENT_TYPE_OPTIONS)[number];
+
 const EVENT_TYPE_LABELS = new Map(EVENT_TYPE_OPTIONS.map((o) => [o.value, o.label]));
 const INTERNAL_TEAM_LABELS = new Map(INTERNAL_TEAM_OPTIONS.map((o) => [o.value, o.label]));
 const ISSUE_LABELS = new Map(ISSUE_OPTIONS.map((o) => [o.value, o.label]));

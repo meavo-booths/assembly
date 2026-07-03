@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { createAssembly, updateAssembly } from "@/app/actions/assemblies";
 import {
+  CLIENT_TYPE_OPTIONS,
   EVENT_TYPE_OPTIONS,
   INTERNAL_TEAM_OPTIONS,
   ISSUE_OPTIONS,
@@ -209,12 +210,16 @@ export function ScheduleAssemblyForm({
   mode,
   options,
   markets = [],
+  deliveryCompanies = [],
+  installCompanies = [],
   values,
   onSuccess,
 }: {
   mode: "create" | "edit";
   options: SheetDropdownOptions;
   markets?: string[];
+  deliveryCompanies?: string[];
+  installCompanies?: string[];
   values?: AssemblyFormValues;
   onSuccess?: () => void;
 }) {
@@ -224,6 +229,11 @@ export function ScheduleAssemblyForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const marketListId = `${formId}-markets`;
+  const deliveryListId = `${formId}-delivery`;
+  const installListId = `${formId}-install`;
+  const hasLegacyClientType =
+    Boolean(initial.channelType) &&
+    !CLIENT_TYPE_OPTIONS.includes(initial.channelType as (typeof CLIENT_TYPE_OPTIONS)[number]);
 
   return (
     <form
@@ -248,39 +258,6 @@ export function ScheduleAssemblyForm({
       }}
     >
       {mode === "edit" && <input type="hidden" name="id" value={initial.id ?? ""} />}
-
-      <fieldset className="space-y-3 rounded-lg border border-slate-200 p-3">
-        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-          Client details
-        </legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-4">
-            <Field label="Client name">
-              <input name="clientName" required defaultValue={initial.clientName} className={inputClass} />
-            </Field>
-            <Field label="Client phone number">
-              <input name="clientPhone" defaultValue={initial.clientPhone} className={inputClass} />
-            </Field>
-            <Field label="Client email">
-              <input
-                type="email"
-                name="clientEmail"
-                defaultValue={initial.clientEmail}
-                className={inputClass}
-              />
-            </Field>
-          </div>
-          <label className="flex flex-col space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Assembly address</span>
-            <textarea
-              name="assemblyAddress"
-              rows={5}
-              defaultValue={initial.assemblyAddress}
-              className={`${inputClass} min-h-[8rem] flex-1 resize-y`}
-            />
-          </label>
-        </div>
-      </fieldset>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4">
@@ -333,21 +310,43 @@ export function ScheduleAssemblyForm({
 
         <div className="space-y-4">
           <Field label="Client type">
-            <input name="channelType" defaultValue={initial.channelType} className={inputClass} />
+            <select name="channelType" defaultValue={initial.channelType} className={inputClass}>
+              <option value="">—</option>
+              {hasLegacyClientType && (
+                <option value={initial.channelType}>{initial.channelType}</option>
+              )}
+              {CLIENT_TYPE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Delivery company">
             <input
               name="deliveryPartnerName"
+              list={deliveryListId}
               defaultValue={initial.deliveryPartnerName}
               className={inputClass}
             />
+            <datalist id={deliveryListId}>
+              {deliveryCompanies.map((company) => (
+                <option key={company} value={company} />
+              ))}
+            </datalist>
           </Field>
           <Field label="Install done by">
             <input
               name="installPartnerName"
+              list={installListId}
               defaultValue={initial.installPartnerName}
               className={inputClass}
             />
+            <datalist id={installListId}>
+              {installCompanies.map((company) => (
+                <option key={company} value={company} />
+              ))}
+            </datalist>
           </Field>
         </div>
 
@@ -401,6 +400,39 @@ export function ScheduleAssemblyForm({
           <SheetDropdown label="Priority" name="priority" options={options.priority} defaultValue={initial.priority} />
           <IssueCategories options={options.issueCategory} initial={initial.issueCategories} />
         </div>
+
+        <fieldset className="space-y-3 rounded-lg border border-slate-200 p-3 lg:col-span-2">
+          <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+            Client details
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-4">
+              <Field label="Client name">
+                <input name="clientName" required defaultValue={initial.clientName} className={inputClass} />
+              </Field>
+              <Field label="Client phone number">
+                <input name="clientPhone" defaultValue={initial.clientPhone} className={inputClass} />
+              </Field>
+              <Field label="Client email">
+                <input
+                  type="email"
+                  name="clientEmail"
+                  defaultValue={initial.clientEmail}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <label className="flex flex-col space-y-1 text-sm">
+              <span className="font-medium text-slate-700">Assembly address</span>
+              <textarea
+                name="assemblyAddress"
+                rows={5}
+                defaultValue={initial.assemblyAddress}
+                className={`${inputClass} min-h-[8rem] flex-1 resize-y`}
+              />
+            </label>
+          </div>
+        </fieldset>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

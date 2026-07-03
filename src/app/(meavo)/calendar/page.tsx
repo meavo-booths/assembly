@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { AssemblyCalendar, type CalendarEvent } from "@/components/assembly-calendar";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
+import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { toAssemblyFormValues, toIsoDate } from "@/lib/assembly-form-values";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
@@ -54,7 +55,7 @@ export default async function CalendarPage({
 
   const { start, end } = gridRange(month);
 
-  const [assemblies, marketRows, options] = await Promise.all([
+  const [assemblies, marketRows, options, partnerSuggestions] = await Promise.all([
     prisma.assembly.findMany({
       where: {
         assemblyDate: { gte: start, lte: end },
@@ -71,6 +72,7 @@ export default async function CalendarPage({
       orderBy: { market: "asc" },
     }),
     getAssemblyDropdownOptions(),
+    getPartnerNameSuggestions(),
   ]);
 
   const markets = marketRows.map((row) => row.market);
@@ -93,6 +95,8 @@ export default async function CalendarPage({
         month={month}
         market={market}
         markets={markets}
+        deliveryCompanies={partnerSuggestions.deliveryCompanies}
+        installCompanies={partnerSuggestions.installCompanies}
         options={options}
       />
     </>

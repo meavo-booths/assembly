@@ -32,10 +32,14 @@ export function AssemblyDetailCard({
   values,
   options,
   markets,
+  deliveryCompanies,
+  installCompanies,
 }: {
   values: AssemblyFormValues;
   options: SheetDropdownOptions;
   markets: string[];
+  deliveryCompanies: string[];
+  installCompanies: string[];
 }) {
   const [editing, setEditing] = useState(false);
   const v = values;
@@ -53,6 +57,8 @@ export function AssemblyDetailCard({
           mode="edit"
           options={options}
           markets={markets}
+          deliveryCompanies={deliveryCompanies}
+          installCompanies={installCompanies}
           values={v}
           onSuccess={() => setEditing(false)}
         />

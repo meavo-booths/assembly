@@ -69,12 +69,16 @@ export function AssemblyCalendar({
   month,
   market,
   markets,
+  deliveryCompanies,
+  installCompanies,
   options,
 }: {
   events: CalendarEvent[];
   month: string;
   market: string;
   markets: string[];
+  deliveryCompanies: string[];
+  installCompanies: string[];
   options: SheetDropdownOptions;
 }) {
   const router = useRouter();
@@ -242,6 +246,8 @@ export function AssemblyCalendar({
           editing={editing}
           options={options}
           markets={markets}
+          deliveryCompanies={deliveryCompanies}
+          installCompanies={installCompanies}
           onEdit={() => setEditing(true)}
           onClose={closeModal}
           onSaved={closeModal}
@@ -368,6 +374,8 @@ function EventModal({
   editing,
   options,
   markets,
+  deliveryCompanies,
+  installCompanies,
   onEdit,
   onClose,
   onSaved,
@@ -376,6 +384,8 @@ function EventModal({
   editing: boolean;
   options: SheetDropdownOptions;
   markets: string[];
+  deliveryCompanies: string[];
+  installCompanies: string[];
   onEdit: () => void;
   onClose: () => void;
   onSaved: () => void;
@@ -394,6 +404,8 @@ function EventModal({
             mode="edit"
             options={options}
             markets={markets}
+            deliveryCompanies={deliveryCompanies}
+            installCompanies={installCompanies}
             values={v}
             onSuccess={onSaved}
           />

@@ -5,6 +5,7 @@ import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { AssemblyDetailCard } from "@/components/assembly-detail-card";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
+import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/ui";
 
@@ -36,7 +37,7 @@ export default async function AssemblyDetailPage({
 
   const submission = assembly.submissions[0];
 
-  const [options, marketRows] = await Promise.all([
+  const [options, marketRows, partnerSuggestions] = await Promise.all([
     getAssemblyDropdownOptions(),
     prisma.assembly.findMany({
       where: { market: { not: "" } },
@@ -44,6 +45,7 @@ export default async function AssemblyDetailPage({
       select: { market: true },
       orderBy: { market: "asc" },
     }),
+    getPartnerNameSuggestions(),
   ]);
   const markets = marketRows.map((row) => row.market);
   const formValues = toAssemblyFormValues(assembly);
@@ -56,7 +58,13 @@ export default async function AssemblyDetailPage({
         </Link>
       </PageHeader>
 
-      <AssemblyDetailCard values={formValues} options={options} markets={markets} />
+      <AssemblyDetailCard
+        values={formValues}
+        options={options}
+        markets={markets}
+        deliveryCompanies={partnerSuggestions.deliveryCompanies}
+        installCompanies={partnerSuggestions.installCompanies}
+      />
 
       {submission ? (
         <Card>

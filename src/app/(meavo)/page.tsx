@@ -6,6 +6,7 @@ import { ScheduleAssemblyCard } from "@/components/schedule-assembly-card";
 import { refreshFromSheet } from "@/app/actions/meavo";
 import { AssemblyFilters } from "@/components/assembly-filters";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
+import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import {
   buildAssemblyWhere,
@@ -35,7 +36,8 @@ export default async function AssembliesPage({
   const filters = parseAssemblyFilters(params);
   const where = buildAssemblyWhere(filters);
 
-  const [assemblies, importState, marketRows, partners, dropdownOptions] = await Promise.all([
+  const [assemblies, importState, marketRows, partners, dropdownOptions, partnerSuggestions] =
+    await Promise.all([
     prisma.assembly.findMany({
       where,
       orderBy: [{ assemblyDate: "asc" }, { dealId: "asc" }],
@@ -58,6 +60,7 @@ export default async function AssembliesPage({
       select: { id: true, name: true },
     }),
     getAssemblyDropdownOptions(),
+    getPartnerNameSuggestions(),
   ]);
 
   const markets = marketRows.map((row) => row.market);
@@ -82,7 +85,12 @@ export default async function AssembliesPage({
         </form>
       </PageHeader>
 
-      <ScheduleAssemblyCard options={dropdownOptions} markets={markets} />
+      <ScheduleAssemblyCard
+        options={dropdownOptions}
+        markets={markets}
+        deliveryCompanies={partnerSuggestions.deliveryCompanies}
+        installCompanies={partnerSuggestions.installCompanies}
+      />
 
       <Suspense fallback={null}>
         <AssemblyFilters filters={filters} markets={markets} partners={partners} />
