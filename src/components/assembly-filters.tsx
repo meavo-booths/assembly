@@ -90,10 +90,22 @@ export function AssemblyFilters({
     pushParams({ q: trimmed, date: "all", from: null, to: null });
   }
 
-  function clearSearch() {
+  function clearFilters() {
     setSearch("");
-    pushParams({ q: null, date: "today", from: null, to: null });
+    setRangeOpen(false);
+    setRangeFrom("");
+    setRangeTo("");
+    startTransition(() => {
+      router.push("/");
+    });
   }
+
+  const hasActiveFilters =
+    filters.datePreset !== "today" ||
+    Boolean(filters.rangeFrom || filters.rangeTo) ||
+    Boolean(filters.market) ||
+    Boolean(filters.partnerId) ||
+    Boolean(filters.search);
 
   return (
     <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -201,11 +213,14 @@ export function AssemblyFilters({
           />
         </label>
         <Button type="submit">Search</Button>
-        {filters.search ? (
-          <Button type="button" variant="secondary" onClick={clearSearch}>
-            Clear
-          </Button>
-        ) : null}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={clearFilters}
+          disabled={!hasActiveFilters}
+        >
+          Clear filters
+        </Button>
       </form>
     </div>
   );

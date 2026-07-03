@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { refreshFromSheet } from "@/app/actions/meavo";
 import { ScheduleAssemblyForm } from "@/components/schedule-assembly-form";
 import type { SheetDropdownOptions } from "@/lib/assembly-schedule";
 import { Button, Card } from "@/components/ui";
@@ -27,9 +28,16 @@ export function ScheduleAssemblyCard({
             Create a new event and add it to the delivery tracker sheet.
           </p>
         </div>
-        <Button variant={open ? "secondary" : "primary"} onClick={() => setOpen((o) => !o)}>
-          {open ? "Cancel" : "New assembly"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <form action={refreshFromSheet}>
+            <Button type="submit" variant="secondary">
+              Refresh from sheet
+            </Button>
+          </form>
+          <Button variant={open ? "secondary" : "primary"} onClick={() => setOpen((o) => !o)}>
+            {open ? "Cancel" : "New assembly"}
+          </Button>
+        </div>
       </div>
 
       {open && (

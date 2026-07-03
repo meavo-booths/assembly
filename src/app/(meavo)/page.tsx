@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { SubmissionStatus } from "@prisma/client";
 import { AssemblyListCard } from "@/components/assembly-list-card";
 import { ScheduleAssemblyCard } from "@/components/schedule-assembly-card";
-import { refreshFromSheet } from "@/app/actions/meavo";
 import { AssemblyFilters } from "@/components/assembly-filters";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
@@ -14,7 +13,7 @@ import {
   parseAssemblyFilters,
 } from "@/lib/assembly-filters";
 import { prisma } from "@/lib/prisma";
-import { Button, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -76,27 +75,12 @@ export default async function AssembliesPage({
           <AssemblyFilters filters={filters} markets={markets} partners={partners} />
         </Suspense>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-end">
-            <form
-              action={async () => {
-                "use server";
-                await refreshFromSheet();
-              }}
-            >
-              <Button type="submit" variant="secondary">
-                Refresh from sheet
-              </Button>
-            </form>
-          </div>
-
-          <ScheduleAssemblyCard
-            options={dropdownOptions}
-            markets={markets}
-            deliveryCompanies={partnerSuggestions.deliveryCompanies}
-            installCompanies={partnerSuggestions.installCompanies}
-          />
-        </div>
+        <ScheduleAssemblyCard
+          options={dropdownOptions}
+          markets={markets}
+          deliveryCompanies={partnerSuggestions.deliveryCompanies}
+          installCompanies={partnerSuggestions.installCompanies}
+        />
       </div>
 
       <p className="mb-4 text-sm text-slate-500">
