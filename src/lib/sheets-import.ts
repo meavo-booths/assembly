@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ensurePartner } from "@/lib/assembly-partners";
 import { ASSEMBLY_SHEET_TAB, getSheetsClient, getSpreadsheetId } from "@/lib/sheets-client";
 import {
+  ISSUE_CATEGORY_COLUMN_INDICES,
   cellString,
   parseSheetBoolean,
   parseSheetDate,
@@ -74,7 +75,9 @@ export async function importAssembliesFromSheet(): Promise<{
       issue: issueFromSheet(row[columns.issue]),
       status: cellString(row, columns.status) || null,
       priority: cellString(row, columns.priority) || null,
-      issueCategory: cellString(row, columns.issueCategory) || null,
+      issueCategories: ISSUE_CATEGORY_COLUMN_INDICES.map((index) => cellString(row, index)).filter(
+        Boolean,
+      ),
       lastImportedAt: new Date(),
     };
 

@@ -417,7 +417,7 @@ function EventModal({
             <Detail label="Issue" value={issueLabel(v.issue)} />
             <Detail label="Status" value={v.status} />
             <Detail label="Priority" value={v.priority} />
-            <Detail label="Issue category" value={v.issueCategory} />
+            <Detail label="Issue category" value={v.issueCategories.join(", ")} />
           </dl>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">

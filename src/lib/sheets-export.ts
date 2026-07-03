@@ -2,6 +2,7 @@ import { getSheetsClient, getSpreadsheetId, ASSEMBLY_SHEET_TAB } from "@/lib/she
 import {
   ASSEMBLY_SHEET_COLUMNS,
   ASSEMBLY_SHEET_LAST_COLUMN_INDEX,
+  ISSUE_CATEGORY_COLUMN_INDICES,
   columnLetter,
   formatSheetBoolean,
   formatSheetDate,
@@ -11,7 +12,7 @@ import {
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
 
-/** Sheet-mirrored fields written on create/edit (columns A–M + O). */
+/** Sheet-mirrored fields written on create/edit (columns A–M + O–S). */
 export type AssemblySheetFields = {
   assemblyDate: Date | null;
   dealId: string;
@@ -26,7 +27,7 @@ export type AssemblySheetFields = {
   issue: string;
   status: string;
   priority: string;
-  issueCategory: string;
+  issueCategories: string[];
 };
 
 function buildRow(fields: AssemblySheetFields): string[] {
@@ -45,7 +46,10 @@ function buildRow(fields: AssemblySheetFields): string[] {
   row[c.issue] = fields.issue;
   row[c.status] = fields.status;
   row[c.priority] = fields.priority;
-  row[c.issueCategory] = fields.issueCategory;
+  // Issue categories spread across O–S; unused columns are cleared.
+  ISSUE_CATEGORY_COLUMN_INDICES.forEach((columnIndex, i) => {
+    row[columnIndex] = fields.issueCategories[i] ?? "";
+  });
   return row;
 }
 
@@ -97,7 +101,7 @@ export async function findSheetRowByDealId(dealId: string): Promise<number | nul
 
 /**
  * Update the mapped columns of an existing sheet row. Column N (index 13) is
- * left untouched by writing A–M and O as two separate ranges.
+ * left untouched by writing A–M and O–S as two separate ranges.
  */
 export async function updateAssemblyRow(
   rowNumber: number,
@@ -108,7 +112,11 @@ export async function updateAssemblyRow(
   const row = buildRow(fields);
 
   const priorityLetter = columnLetter(ASSEMBLY_SHEET_COLUMNS.priority); // M
-  const issueCategoryLetter = columnLetter(ASSEMBLY_SHEET_COLUMNS.issueCategory); // O
+  const firstCategoryLetter = columnLetter(ISSUE_CATEGORY_COLUMN_INDICES[0]); // O
+  const lastCategoryLetter = columnLetter(
+    ISSUE_CATEGORY_COLUMN_INDICES[ISSUE_CATEGORY_COLUMN_INDICES.length - 1],
+  ); // S
+  const firstCategoryIndex = ISSUE_CATEGORY_COLUMN_INDICES[0];
 
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId,
@@ -120,8 +128,8 @@ export async function updateAssemblyRow(
           values: [row.slice(0, ASSEMBLY_SHEET_COLUMNS.priority + 1)],
         },
         {
-          range: `'${ASSEMBLY_SHEET_TAB}'!${issueCategoryLetter}${rowNumber}`,
-          values: [[row[ASSEMBLY_SHEET_COLUMNS.issueCategory]]],
+          range: `'${ASSEMBLY_SHEET_TAB}'!${firstCategoryLetter}${rowNumber}:${lastCategoryLetter}${rowNumber}`,
+          values: [row.slice(firstCategoryIndex, ASSEMBLY_SHEET_LAST_COLUMN_INDEX + 1)],
         },
       ],
     },

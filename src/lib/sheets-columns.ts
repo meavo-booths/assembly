@@ -1,5 +1,5 @@
 /**
- * Canonical mapping of Assembly fields to Google Sheet columns (A–O).
+ * Canonical mapping of Assembly fields to Google Sheet columns (A–S).
  * Indices are 0-based. Column N (13) is intentionally unmapped and left
  * untouched by the app.
  */
@@ -17,13 +17,19 @@ export const ASSEMBLY_SHEET_COLUMNS = {
   issue: 10, // K
   status: 11, // L
   priority: 12, // M
-  issueCategory: 14, // O
+  issueCategory: 14, // O — first of five issue-category columns
 } as const;
 
 export type AssemblyColumnKey = keyof typeof ASSEMBLY_SHEET_COLUMNS;
 
-/** Last mapped column index (O). Column N (13) is skipped. */
-export const ASSEMBLY_SHEET_LAST_COLUMN_INDEX = 14;
+/** Maximum number of issue categories (sheet columns O–S). */
+export const MAX_ISSUE_CATEGORIES = 5;
+
+/** Column indices for the five issue-category columns O, P, Q, R, S. */
+export const ISSUE_CATEGORY_COLUMN_INDICES = [14, 15, 16, 17, 18] as const;
+
+/** Last mapped column index (S). Column N (13) is skipped. */
+export const ASSEMBLY_SHEET_LAST_COLUMN_INDEX = 18;
 
 /** Header aliases (normalized, lowercase) used to resolve columns by header. */
 const HEADER_ALIASES: Record<AssemblyColumnKey, string[]> = {

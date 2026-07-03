@@ -371,10 +371,10 @@ model Assembly {
   closure       Boolean       @default(false)
   survey        Boolean       @default(false)
   fulfilledOn   DateTime?     @db.Date
-  issue         AssemblyIssue @default(PENDING)
-  status        String?
-  priority      String?
-  issueCategory String?
+  issue           AssemblyIssue @default(PENDING)
+  status          String?
+  priority        String?
+  issueCategories String[]
 
   installPartner AssemblyPartner?          @relation(fields: [installPartnerId], references: [id], onDelete: SetNull)
   submissions    QuestionnaireSubmission[]

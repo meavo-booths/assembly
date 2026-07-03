@@ -16,6 +16,7 @@ import {
   parseInternalTeam,
   parseIssue,
 } from "@/lib/assembly-schedule";
+import { MAX_ISSUE_CATEGORIES } from "@/lib/sheets-columns";
 
 type ParsedAssembly = {
   dealId: string;
@@ -36,7 +37,7 @@ type ParsedAssembly = {
   issue: ReturnType<typeof parseIssue>;
   status: string | null;
   priority: string | null;
-  issueCategory: string | null;
+  issueCategories: string[];
 };
 
 function parseIsoDateInput(value: string): Date | null {
@@ -80,7 +81,11 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
       issue: parseIssue(formData.get("issue")),
       status: str(formData, "status") || null,
       priority: str(formData, "priority") || null,
-      issueCategory: str(formData, "issueCategory") || null,
+      issueCategories: formData
+        .getAll("issueCategory")
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+        .slice(0, MAX_ISSUE_CATEGORIES),
     },
   };
 }
@@ -100,7 +105,7 @@ function toSheetFields(data: ParsedAssembly): AssemblySheetFields {
     issue: issueToSheet(data.issue),
     status: data.status ?? "",
     priority: data.priority ?? "",
-    issueCategory: data.issueCategory ?? "",
+    issueCategories: data.issueCategories,
   };
 }
 
@@ -157,7 +162,7 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
       issue: data.issue,
       status: data.status,
       priority: data.priority,
-      issueCategory: data.issueCategory,
+      issueCategories: data.issueCategories,
       sheetRowNumber: rowNumber,
       lastImportedAt: new Date(),
     },
@@ -223,7 +228,7 @@ export async function updateAssembly(formData: FormData): Promise<{ error?: stri
       issue: data.issue,
       status: data.status,
       priority: data.priority,
-      issueCategory: data.issueCategory,
+      issueCategories: data.issueCategories,
       sheetRowNumber: rowNumber,
       sheetSyncError: null,
     },
