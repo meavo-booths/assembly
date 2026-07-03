@@ -14,7 +14,7 @@ import {
   parseAssemblyFilters,
 } from "@/lib/assembly-filters";
 import { prisma } from "@/lib/prisma";
-import { Button, Card, PageHeader } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -71,30 +71,33 @@ export default async function AssembliesPage({
 
   return (
     <>
-      <PageHeader
-        title="Assemblies"
-        description="Mirrored from the delivery tracker sheet. CS continues scheduling in Google Sheets."
-      >
-        <form
-          action={async () => {
-            "use server";
-            await refreshFromSheet();
-          }}
-        >
-          <Button type="submit">Refresh from sheet</Button>
-        </form>
-      </PageHeader>
+      <div className="mb-6 grid gap-4 lg:grid-cols-2 lg:items-start">
+        <Suspense fallback={null}>
+          <AssemblyFilters filters={filters} markets={markets} partners={partners} />
+        </Suspense>
 
-      <ScheduleAssemblyCard
-        options={dropdownOptions}
-        markets={markets}
-        deliveryCompanies={partnerSuggestions.deliveryCompanies}
-        installCompanies={partnerSuggestions.installCompanies}
-      />
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-end">
+            <form
+              action={async () => {
+                "use server";
+                await refreshFromSheet();
+              }}
+            >
+              <Button type="submit" variant="secondary">
+                Refresh from sheet
+              </Button>
+            </form>
+          </div>
 
-      <Suspense fallback={null}>
-        <AssemblyFilters filters={filters} markets={markets} partners={partners} />
-      </Suspense>
+          <ScheduleAssemblyCard
+            options={dropdownOptions}
+            markets={markets}
+            deliveryCompanies={partnerSuggestions.deliveryCompanies}
+            installCompanies={partnerSuggestions.installCompanies}
+          />
+        </div>
+      </div>
 
       <p className="mb-4 text-sm text-slate-500">
         Showing {assemblies.length} {assemblies.length === 1 ? "assembly" : "assemblies"} for{" "}

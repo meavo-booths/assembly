@@ -19,7 +19,7 @@ export function ScheduleAssemblyCard({
   const [open, setOpen] = useState(false);
 
   return (
-    <Card className="mb-6">
+    <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-medium text-slate-900">Schedule assembly</h2>
