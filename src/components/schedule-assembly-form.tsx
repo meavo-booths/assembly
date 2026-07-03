@@ -352,7 +352,7 @@ export function ScheduleAssemblyForm({
           </Field>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:row-span-2">
           <Field label="Assembly date">
             <input
               type="date"
@@ -436,7 +436,7 @@ export function ScheduleAssemblyForm({
           </div>
         </fieldset>
 
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2">
           <Field label="Comments">
             <textarea
               name="comments"
