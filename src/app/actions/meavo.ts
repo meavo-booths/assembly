@@ -14,12 +14,11 @@ import {
   markSectionTranslationsStale,
 } from "@/lib/questionnaire-translation-status";
 
-export async function refreshFromSheet(): Promise<{ imported: number; partnersCreated: number }> {
+export async function refreshFromSheet(): Promise<void> {
   await requireMeavoAccess();
-  const result = await importAssembliesFromSheet();
+  await importAssembliesFromSheet();
   revalidatePath("/");
   revalidatePath("/partners");
-  return result;
 }
 
 export async function setPartnerAccessCode(formData: FormData): Promise<void> {
