@@ -13,7 +13,7 @@ import {
   issueLabel,
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
-import { marketColor } from "@/lib/assembly-markets";
+import { buildMarketColorMap, marketStyle, type MarketStyle } from "@/lib/assembly-markets";
 import { Button } from "@/components/ui";
 
 export type CalendarEvent = {
@@ -80,8 +80,10 @@ export function AssemblyCalendar({
   const router = useRouter();
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [editing, setEditing] = useState(false);
+  const [dayKey, setDayKey] = useState<string | null>(null);
 
   const grid = useMemo(() => buildMonthGrid(month), [month]);
+  const colorMap = useMemo(() => buildMarketColorMap(markets), [markets]);
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const event of events) {
@@ -118,6 +120,7 @@ export function AssemblyCalendar({
   }
 
   function openEvent(event: CalendarEvent) {
+    setDayKey(null);
     setSelected(event);
     setEditing(false);
   }
@@ -126,6 +129,8 @@ export function AssemblyCalendar({
     setSelected(null);
     setEditing(false);
   }
+
+  const dayModalEvents = dayKey ? eventsByDay.get(dayKey) ?? [] : [];
 
   return (
     <div>
@@ -197,22 +202,22 @@ export function AssemblyCalendar({
                   {day.getUTCDate()}
                 </div>
                 <div className="space-y-1">
-                  {dayEvents.slice(0, 3).map((event) => {
-                    const color = marketColor(event.values.market);
-                    return (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={() => openEvent(event)}
-                        className={`block w-full truncate rounded border px-1.5 py-0.5 text-left text-[11px] font-medium ${color.chip}`}
-                        title={`${event.values.dealId} · ${event.values.clientName}`}
-                      >
-                        {event.values.dealId}
-                      </button>
-                    );
-                  })}
+                  {dayEvents.slice(0, 3).map((event) => (
+                    <EventChip
+                      key={event.id}
+                      event={event}
+                      style={marketStyle(event.values.market, colorMap)}
+                      onClick={() => openEvent(event)}
+                    />
+                  ))}
                   {dayEvents.length > 3 && (
-                    <p className="px-1 text-[11px] text-slate-500">+{dayEvents.length - 3} more</p>
+                    <button
+                      type="button"
+                      onClick={() => setDayKey(key)}
+                      className="w-full rounded px-1 py-0.5 text-left text-[11px] font-medium text-brand-700 hover:bg-brand-50"
+                    >
+                      +{dayEvents.length - 3} more
+                    </button>
                   )}
                 </div>
               </div>
@@ -220,6 +225,16 @@ export function AssemblyCalendar({
           })}
         </div>
       </div>
+
+      {dayKey && !selected && (
+        <DayEventsModal
+          dateKey={dayKey}
+          events={dayModalEvents}
+          colorMap={colorMap}
+          onSelect={openEvent}
+          onClose={() => setDayKey(null)}
+        />
+      )}
 
       {selected && (
         <EventModal
@@ -233,6 +248,118 @@ export function AssemblyCalendar({
         />
       )}
     </div>
+  );
+}
+
+function EventChip({
+  event,
+  style,
+  onClick,
+}: {
+  event: CalendarEvent;
+  style: MarketStyle;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={style}
+      className="block w-full truncate rounded border px-1.5 py-0.5 text-left text-[11px] font-medium"
+      title={`${event.values.dealId} · ${event.values.clientName}`}
+    >
+      {event.values.dealId}
+    </button>
+  );
+}
+
+function ModalShell({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-20 sm:p-8 sm:pt-24"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold text-slate-900">{title}</h2>
+            {subtitle && <p className="truncate text-sm text-slate-600">{subtitle}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DayEventsModal({
+  dateKey,
+  events,
+  colorMap,
+  onSelect,
+  onClose,
+}: {
+  dateKey: string;
+  events: CalendarEvent[];
+  colorMap: Record<string, MarketStyle>;
+  onSelect: (event: CalendarEvent) => void;
+  onClose: () => void;
+}) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const heading = `${MONTH_NAMES[m - 1]} ${d}, ${y}`;
+
+  return (
+    <ModalShell
+      title={heading}
+      subtitle={`${events.length} ${events.length === 1 ? "assembly" : "assemblies"}`}
+      onClose={onClose}
+    >
+      <ul className="mt-4 space-y-2">
+        {events.map((event) => (
+          <li key={event.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(event)}
+              style={marketStyle(event.values.market, colorMap)}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left hover:brightness-95"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-slate-900">
+                  {event.values.dealId}
+                </span>
+                <span className="block truncate text-xs text-slate-600">
+                  {event.values.clientName || "Unknown client"}
+                </span>
+              </span>
+              <span className="shrink-0 text-xs font-medium text-slate-700">
+                {event.values.market || "—"}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </ModalShell>
   );
 }
 
@@ -256,74 +383,55 @@ function EventModal({
   const v = event.values;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8"
-      onClick={onClose}
+    <ModalShell
+      title={v.dealId}
+      subtitle={v.clientName || "Unknown client"}
+      onClose={onClose}
     >
-      <div
-        className="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold text-slate-900">{v.dealId}</h2>
-            <p className="truncate text-sm text-slate-600">{v.clientName || "Unknown client"}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+      {editing ? (
+        <div className="mt-4">
+          <ScheduleAssemblyForm
+            mode="edit"
+            options={options}
+            markets={markets}
+            values={v}
+            onSuccess={onSaved}
+          />
         </div>
+      ) : (
+        <>
+          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <Detail label="Event type" value={eventTypeLabel(v.eventType)} />
+            <Detail label="Internal team" value={internalTeamLabel(v.internalTeam)} />
+            <Detail label="Date" value={formatDisplayDate(v.assemblyDate)} />
+            <Detail label="Market" value={v.market} />
+            <Detail label="Client type" value={v.channelType} />
+            <Detail label="Client email" value={v.clientEmail} />
+            <Detail label="Client phone" value={v.clientPhone} />
+            <Detail label="Assembly address" value={v.assemblyAddress} />
+            <Detail label="Delivery company" value={v.deliveryPartnerName} />
+            <Detail label="Install done by" value={v.installPartnerName} />
+            <Detail label="Closure" value={v.closure ? "Yes" : "No"} />
+            <Detail label="Survey" value={v.survey ? "Yes" : "No"} />
+            <Detail label="Fulfilled" value={formatDisplayDate(v.fulfilledOn)} />
+            <Detail label="Issue" value={issueLabel(v.issue)} />
+            <Detail label="Status" value={v.status} />
+            <Detail label="Priority" value={v.priority} />
+            <Detail label="Issue category" value={v.issueCategory} />
+          </dl>
 
-        {editing ? (
-          <div className="mt-4">
-            <ScheduleAssemblyForm
-              mode="edit"
-              options={options}
-              markets={markets}
-              values={v}
-              onSuccess={onSaved}
-            />
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Button onClick={onEdit}>Edit</Button>
+            <Link
+              href={`/assemblies/${encodeURIComponent(v.dealId)}`}
+              className="text-sm text-brand-700 underline"
+            >
+              Open full details
+            </Link>
           </div>
-        ) : (
-          <>
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <Detail label="Event type" value={eventTypeLabel(v.eventType)} />
-              <Detail label="Internal team" value={internalTeamLabel(v.internalTeam)} />
-              <Detail label="Date" value={formatDisplayDate(v.assemblyDate)} />
-              <Detail label="Market" value={v.market} />
-              <Detail label="Client type" value={v.channelType} />
-              <Detail label="Client email" value={v.clientEmail} />
-              <Detail label="Client phone" value={v.clientPhone} />
-              <Detail label="Assembly address" value={v.assemblyAddress} />
-              <Detail label="Delivery company" value={v.deliveryPartnerName} />
-              <Detail label="Install done by" value={v.installPartnerName} />
-              <Detail label="Closure" value={v.closure ? "Yes" : "No"} />
-              <Detail label="Survey" value={v.survey ? "Yes" : "No"} />
-              <Detail label="Fulfilled" value={formatDisplayDate(v.fulfilledOn)} />
-              <Detail label="Issue" value={issueLabel(v.issue)} />
-              <Detail label="Status" value={v.status} />
-              <Detail label="Priority" value={v.priority} />
-              <Detail label="Issue category" value={v.issueCategory} />
-            </dl>
-
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Button onClick={onEdit}>Edit</Button>
-              <Link
-                href={`/assemblies/${encodeURIComponent(v.dealId)}`}
-                className="text-sm text-brand-700 underline"
-              >
-                Open full details
-              </Link>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    </ModalShell>
   );
 }
 

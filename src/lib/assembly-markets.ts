@@ -1,41 +1,62 @@
 /**
- * Deterministic colour assignment for markets (countries) on the calendar.
- * Uses a fixed Tailwind palette so the same market always renders the same
- * colour, with a neutral fallback for blanks.
+ * Colour assignment for markets (countries) on the calendar. Uses the six
+ * Gateway team-creation pastels plus six similar tones (12 total), assigned by
+ * the market's position in the sorted list of distinct markets so each market
+ * gets a stable, visually distinct colour.
  */
 
-export type MarketColor = {
-  /** Event chip classes (background + text + border). */
-  chip: string;
-  /** Small legend/dot classes. */
-  dot: string;
+export type MarketStyle = {
+  backgroundColor: string;
+  color: string;
+  borderColor: string;
 };
 
-const PALETTE: MarketColor[] = [
-  { chip: "bg-blue-100 text-blue-800 border-blue-200", dot: "bg-blue-500" },
-  { chip: "bg-emerald-100 text-emerald-800 border-emerald-200", dot: "bg-emerald-500" },
-  { chip: "bg-amber-100 text-amber-900 border-amber-200", dot: "bg-amber-500" },
-  { chip: "bg-violet-100 text-violet-800 border-violet-200", dot: "bg-violet-500" },
-  { chip: "bg-rose-100 text-rose-800 border-rose-200", dot: "bg-rose-500" },
-  { chip: "bg-cyan-100 text-cyan-800 border-cyan-200", dot: "bg-cyan-500" },
-  { chip: "bg-lime-100 text-lime-800 border-lime-200", dot: "bg-lime-600" },
-  { chip: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200", dot: "bg-fuchsia-500" },
-  { chip: "bg-orange-100 text-orange-900 border-orange-200", dot: "bg-orange-500" },
-  { chip: "bg-teal-100 text-teal-800 border-teal-200", dot: "bg-teal-500" },
+const TEXT_COLOR = "#334155"; // slate-700
+const BORDER_COLOR = "rgba(15, 23, 42, 0.14)";
+
+// First 6 match Gateway's TEAM_COLORS; last 6 are similar pastels.
+const PALETTE = [
+  "#EEDCDC", // blush pink
+  "#F4E3B1", // pale yellow
+  "#E1E9EC", // pale blue-grey
+  "#DCE4D7", // pale green
+  "#E6E0EC", // pale purple
+  "#E4E0DA", // pale taupe
+  "#F3D2C1", // peach
+  "#CFE3E6", // pale cyan
+  "#D9E2F3", // periwinkle
+  "#E9D9C0", // sand
+  "#DCEAD0", // pale lime
+  "#EAD5E4", // pale magenta
 ];
 
-const FALLBACK: MarketColor = {
-  chip: "bg-slate-100 text-slate-700 border-slate-200",
-  dot: "bg-slate-400",
+export const FALLBACK_MARKET_STYLE: MarketStyle = {
+  backgroundColor: "#E5E7EB", // slate-200
+  color: TEXT_COLOR,
+  borderColor: BORDER_COLOR,
 };
 
-export function marketColor(market: string): MarketColor {
-  const key = market.trim().toLowerCase();
-  if (!key) return FALLBACK;
+/** Build a market -> colour map from the (unsorted) list of market names. */
+export function buildMarketColorMap(markets: string[]): Record<string, MarketStyle> {
+  const unique = Array.from(
+    new Set(markets.map((m) => m.trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b));
 
-  let hash = 0;
-  for (let i = 0; i < key.length; i += 1) {
-    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  }
-  return PALETTE[hash % PALETTE.length];
+  const map: Record<string, MarketStyle> = {};
+  unique.forEach((market, index) => {
+    map[market.toLowerCase()] = {
+      backgroundColor: PALETTE[index % PALETTE.length],
+      color: TEXT_COLOR,
+      borderColor: BORDER_COLOR,
+    };
+  });
+  return map;
+}
+
+export function marketStyle(
+  market: string,
+  map: Record<string, MarketStyle>,
+): MarketStyle {
+  const key = market.trim().toLowerCase();
+  return (key && map[key]) || FALLBACK_MARKET_STYLE;
 }
