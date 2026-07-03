@@ -1,8 +1,7 @@
 import { cookies } from "next/headers";
-import type { Assembly } from "@prisma/client";
 import { AssemblyCalendar, type CalendarEvent } from "@/components/assembly-calendar";
-import type { AssemblyFormValues } from "@/components/schedule-assembly-form";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
+import { toAssemblyFormValues, toIsoDate } from "@/lib/assembly-form-values";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/ui";
@@ -34,36 +33,6 @@ function gridRange(month: string): { start: Date; end: Date } {
   const end = new Date(start);
   end.setUTCDate(start.getUTCDate() + 41);
   return { start, end };
-}
-
-function toIsoDate(date: Date | null): string {
-  if (!date) return "";
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
-}
-
-function toFormValues(a: Assembly): AssemblyFormValues {
-  return {
-    id: a.id,
-    dealId: a.dealId,
-    assemblyDate: toIsoDate(a.assemblyDate),
-    market: a.market,
-    clientName: a.clientName,
-    channelType: a.channelType,
-    eventType: a.eventType,
-    internalTeam: a.internalTeam,
-    clientEmail: a.clientEmail ?? "",
-    clientPhone: a.clientPhone ?? "",
-    assemblyAddress: a.assemblyAddress ?? "",
-    deliveryPartnerName: a.deliveryPartnerName,
-    installPartnerName: a.installPartnerName,
-    closure: a.closure,
-    survey: a.survey,
-    fulfilledOn: toIsoDate(a.fulfilledOn),
-    issue: a.issue,
-    status: a.status ?? "",
-    priority: a.priority ?? "",
-    issueCategory: a.issueCategory ?? "",
-  };
 }
 
 export default async function CalendarPage({
@@ -110,7 +79,7 @@ export default async function CalendarPage({
     id: assembly.id,
     dateKey: toIsoDate(assembly.assemblyDate) || null,
     submitted: assembly.submissions.some((s) => s.status === "SUBMITTED"),
-    values: toFormValues(assembly),
+    values: toAssemblyFormValues(assembly),
   }));
 
   return (

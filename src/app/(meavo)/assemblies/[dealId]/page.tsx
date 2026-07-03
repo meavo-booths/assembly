@@ -2,13 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuestionType } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
-import { eventTypeLabel, internalTeamLabel, issueLabel } from "@/lib/assembly-schedule";
+import { AssemblyDetailCard } from "@/components/assembly-detail-card";
+import { toAssemblyFormValues } from "@/lib/assembly-form-values";
+import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/ui";
-
-function formatDate(date: Date | null): string {
-  return date?.toLocaleDateString("en-GB", { timeZone: "UTC" }) ?? "—";
-}
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +36,18 @@ export default async function AssemblyDetailPage({
 
   const submission = assembly.submissions[0];
 
+  const [options, marketRows] = await Promise.all([
+    getAssemblyDropdownOptions(),
+    prisma.assembly.findMany({
+      where: { market: { not: "" } },
+      distinct: ["market"],
+      select: { market: true },
+      orderBy: { market: "asc" },
+    }),
+  ]);
+  const markets = marketRows.map((row) => row.market);
+  const formValues = toAssemblyFormValues(assembly);
+
   return (
     <>
       <PageHeader title={assembly.dealId} description={assembly.clientName}>
@@ -46,78 +56,7 @@ export default async function AssemblyDetailPage({
         </Link>
       </PageHeader>
 
-      <Card className="mb-4">
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-slate-500">Event type</dt>
-            <dd>{eventTypeLabel(assembly.eventType)}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Internal team</dt>
-            <dd>{internalTeamLabel(assembly.internalTeam)}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Date</dt>
-            <dd>{formatDate(assembly.assemblyDate)}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Market</dt>
-            <dd>{assembly.market || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Client type</dt>
-            <dd>{assembly.channelType || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Client email</dt>
-            <dd>{assembly.clientEmail || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Client phone</dt>
-            <dd>{assembly.clientPhone || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Assembly address</dt>
-            <dd>{assembly.assemblyAddress || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Install partner</dt>
-            <dd>{assembly.installPartnerName || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Delivery partner</dt>
-            <dd>{assembly.deliveryPartnerName || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Closure</dt>
-            <dd>{assembly.closure ? "Yes" : "No"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Survey</dt>
-            <dd>{assembly.survey ? "Yes" : "No"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Fulfilled</dt>
-            <dd>{formatDate(assembly.fulfilledOn)}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Issue</dt>
-            <dd>{issueLabel(assembly.issue)}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Status</dt>
-            <dd>{assembly.status || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Priority</dt>
-            <dd>{assembly.priority || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-slate-500">Issue category</dt>
-            <dd>{assembly.issueCategory || "—"}</dd>
-          </div>
-        </dl>
-      </Card>
+      <AssemblyDetailCard values={formValues} options={options} markets={markets} />
 
       {submission ? (
         <Card>
