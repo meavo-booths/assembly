@@ -113,14 +113,13 @@ export function AssemblyFilters({
         <Button
           type="button"
           variant={filters.datePreset === "range" ? "primary" : "secondary"}
-          className="px-3 py-1.5"
+          className="px-2 py-1.5"
           onClick={openRangePicker}
           aria-expanded={rangeOpen}
+          aria-label="Date range"
+          title="Date range"
         >
-          <span className="inline-flex items-center gap-1.5">
-            <CalendarIcon />
-            Range
-          </span>
+          <CalendarIcon />
         </Button>
       </div>
 
@@ -150,13 +149,13 @@ export function AssemblyFilters({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-        <label className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-medium text-slate-700">Market</span>
+      <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+        <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <span className="shrink-0 font-medium text-slate-700">Market</span>
           <select
             value={filters.market ?? ""}
             onChange={(e) => selectMarket(e.target.value)}
-            className="min-w-[10rem] rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
           >
             <option value="">All markets</option>
             {markets.map((market) => (
@@ -167,12 +166,12 @@ export function AssemblyFilters({
           </select>
         </label>
 
-        <label className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-medium text-slate-700">Partner</span>
+        <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <span className="shrink-0 font-medium text-slate-700">Partner</span>
           <select
             value={filters.partnerId ?? ""}
             onChange={(e) => selectPartner(e.target.value)}
-            className="min-w-[10rem] rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
           >
             <option value="">All partners</option>
             {partners.map((partner) => (
