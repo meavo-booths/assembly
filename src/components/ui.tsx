@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { type ButtonHTMLAttributes, ReactNode } from "react";
 
 export function Card({
   children,
@@ -21,6 +21,7 @@ export function Button({
   className = "",
   disabled,
   onClick,
+  ...rest
 }: {
   children: ReactNode;
   type?: "button" | "submit";
@@ -28,7 +29,7 @@ export function Button({
   className?: string;
   disabled?: boolean;
   onClick?: () => void;
-}) {
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "className" | "disabled" | "onClick">) {
   const variants = {
     primary: "bg-brand-600 text-white hover:bg-brand-700",
     secondary: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
@@ -41,6 +42,7 @@ export function Button({
       type={type}
       disabled={disabled}
       onClick={onClick}
+      {...rest}
       className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${variants[variant]} ${className}`}
     >
       {children}
