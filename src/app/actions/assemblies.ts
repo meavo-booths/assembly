@@ -1,0 +1,234 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { requireMeavoAccess } from "@/lib/meavo-auth";
+import { resolveInstallPartnerId } from "@/lib/assembly-partners";
+import {
+  appendAssemblyRow,
+  findSheetRowByDealId,
+  updateAssemblyRow,
+  type AssemblySheetFields,
+} from "@/lib/sheets-export";
+import {
+  issueToSheet,
+  parseEventType,
+  parseInternalTeam,
+  parseIssue,
+} from "@/lib/assembly-schedule";
+
+type ParsedAssembly = {
+  dealId: string;
+  assemblyDate: Date | null;
+  market: string;
+  clientName: string;
+  channelType: string;
+  eventType: ReturnType<typeof parseEventType>;
+  internalTeam: ReturnType<typeof parseInternalTeam>;
+  clientEmail: string | null;
+  clientPhone: string | null;
+  assemblyAddress: string | null;
+  deliveryPartnerName: string;
+  installPartnerName: string;
+  closure: boolean;
+  survey: boolean;
+  fulfilledOn: Date | null;
+  issue: ReturnType<typeof parseIssue>;
+  status: string | null;
+  priority: string | null;
+  issueCategory: string | null;
+};
+
+function parseIsoDateInput(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const [y, m, d] = trimmed.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function str(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
+}
+
+function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?: string } {
+  const dealId = str(formData, "dealId");
+  const market = str(formData, "market");
+  const clientName = str(formData, "clientName");
+
+  if (!dealId) return { error: "Deal ID is required." };
+  if (!market) return { error: "Market is required." };
+  if (!clientName) return { error: "Client name is required." };
+
+  return {
+    data: {
+      dealId,
+      assemblyDate: parseIsoDateInput(str(formData, "assemblyDate")),
+      market,
+      clientName,
+      channelType: str(formData, "channelType"),
+      eventType: parseEventType(formData.get("eventType")),
+      internalTeam: parseInternalTeam(formData.get("internalTeam")),
+      clientEmail: str(formData, "clientEmail") || null,
+      clientPhone: str(formData, "clientPhone") || null,
+      assemblyAddress: str(formData, "assemblyAddress") || null,
+      deliveryPartnerName: str(formData, "deliveryPartnerName"),
+      installPartnerName: str(formData, "installPartnerName"),
+      closure: formData.get("closure") === "on" || formData.get("closure") === "true",
+      survey: formData.get("survey") === "on" || formData.get("survey") === "true",
+      fulfilledOn: parseIsoDateInput(str(formData, "fulfilledOn")),
+      issue: parseIssue(formData.get("issue")),
+      status: str(formData, "status") || null,
+      priority: str(formData, "priority") || null,
+      issueCategory: str(formData, "issueCategory") || null,
+    },
+  };
+}
+
+function toSheetFields(data: ParsedAssembly): AssemblySheetFields {
+  return {
+    assemblyDate: data.assemblyDate,
+    dealId: data.dealId,
+    market: data.market,
+    clientName: data.clientName,
+    channelType: data.channelType,
+    closure: data.closure,
+    survey: data.survey,
+    fulfilledOn: data.fulfilledOn,
+    deliveryPartnerName: data.deliveryPartnerName,
+    installPartnerName: data.installPartnerName,
+    issue: issueToSheet(data.issue),
+    status: data.status ?? "",
+    priority: data.priority ?? "",
+    issueCategory: data.issueCategory ?? "",
+  };
+}
+
+function revalidateAssemblyViews(dealId: string) {
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath(`/assemblies/${dealId}`);
+}
+
+export async function createAssembly(formData: FormData): Promise<{ error?: string }> {
+  await requireMeavoAccess();
+
+  const parsed = parseAssemblyForm(formData);
+  if (!parsed.data) return { error: parsed.error };
+  const data = parsed.data;
+
+  const existing = await prisma.assembly.findUnique({ where: { dealId: data.dealId } });
+  if (existing) return { error: `Deal ID "${data.dealId}" already exists.` };
+
+  const installPartnerId = data.installPartnerName
+    ? await resolveInstallPartnerId(data.installPartnerName)
+    : null;
+
+  // Fail closed: only create the DB row if the sheet append succeeds.
+  let rowNumber: number | null = null;
+  try {
+    const result = await appendAssemblyRow(toSheetFields(data));
+    rowNumber = result.rowNumber;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not write to the Google Sheet.";
+    return { error: `Sheet update failed: ${message}` };
+  }
+
+  await prisma.assembly.create({
+    data: {
+      dealId: data.dealId,
+      assemblyDate: data.assemblyDate,
+      market: data.market,
+      clientName: data.clientName,
+      channelType: data.channelType,
+      deliveryPartnerName: data.deliveryPartnerName,
+      installPartnerName: data.installPartnerName,
+      installPartnerId,
+      source: "APP_CREATED",
+      eventType: data.eventType,
+      internalTeam: data.internalTeam,
+      clientEmail: data.clientEmail,
+      clientPhone: data.clientPhone,
+      assemblyAddress: data.assemblyAddress,
+      closure: data.closure,
+      survey: data.survey,
+      fulfilledOn: data.fulfilledOn,
+      issue: data.issue,
+      status: data.status,
+      priority: data.priority,
+      issueCategory: data.issueCategory,
+      sheetRowNumber: rowNumber,
+      lastImportedAt: new Date(),
+    },
+  });
+
+  revalidateAssemblyViews(data.dealId);
+  return {};
+}
+
+export async function updateAssembly(formData: FormData): Promise<{ error?: string }> {
+  await requireMeavoAccess();
+
+  const id = str(formData, "id");
+  if (!id) return { error: "Assembly not found." };
+
+  const parsed = parseAssemblyForm(formData);
+  if (!parsed.data) return { error: parsed.error };
+  const data = parsed.data;
+
+  const assembly = await prisma.assembly.findUnique({ where: { id } });
+  if (!assembly) return { error: "Assembly not found." };
+
+  // dealId is the sheet/DB key and is not editable.
+  const dealId = assembly.dealId;
+  const sheetData = toSheetFields({ ...data, dealId });
+
+  // Resolve the sheet row (stored number, else look up by deal ID).
+  let rowNumber = assembly.sheetRowNumber ?? null;
+  try {
+    if (!rowNumber) rowNumber = await findSheetRowByDealId(dealId);
+    if (!rowNumber) {
+      return { error: "Could not find this assembly's row in the Google Sheet." };
+    }
+    await updateAssemblyRow(rowNumber, sheetData);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not write to the Google Sheet.";
+    return { error: `Sheet update failed: ${message}` };
+  }
+
+  const installPartnerId = data.installPartnerName
+    ? await resolveInstallPartnerId(data.installPartnerName)
+    : null;
+
+  await prisma.assembly.update({
+    where: { id },
+    data: {
+      assemblyDate: data.assemblyDate,
+      market: data.market,
+      clientName: data.clientName,
+      channelType: data.channelType,
+      deliveryPartnerName: data.deliveryPartnerName,
+      installPartnerName: data.installPartnerName,
+      installPartnerId,
+      eventType: data.eventType,
+      internalTeam: data.internalTeam,
+      clientEmail: data.clientEmail,
+      clientPhone: data.clientPhone,
+      assemblyAddress: data.assemblyAddress,
+      closure: data.closure,
+      survey: data.survey,
+      fulfilledOn: data.fulfilledOn,
+      issue: data.issue,
+      status: data.status,
+      priority: data.priority,
+      issueCategory: data.issueCategory,
+      sheetRowNumber: rowNumber,
+      sheetSyncError: null,
+    },
+  });
+
+  revalidateAssemblyViews(dealId);
+  return {};
+}

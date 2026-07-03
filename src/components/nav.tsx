@@ -16,6 +16,7 @@ const GATEWAY_URL = process.env.GATEWAY_URL ?? "https://meavo.app";
 
 const links = [
   { href: "/", label: "Assemblies" },
+  { href: "/calendar", label: "Calendar" },
   { href: "/partners", label: "Partners" },
   { href: "/questionnaire", label: "Questionnaire" },
   { href: "/resources", label: "Resource library" },

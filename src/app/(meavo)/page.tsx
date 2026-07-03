@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { SubmissionStatus } from "@prisma/client";
 import { AssemblyListCard } from "@/components/assembly-list-card";
+import { ScheduleAssemblyCard } from "@/components/schedule-assembly-card";
 import { refreshFromSheet } from "@/app/actions/meavo";
 import { AssemblyFilters } from "@/components/assembly-filters";
+import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import {
   buildAssemblyWhere,
@@ -33,7 +35,7 @@ export default async function AssembliesPage({
   const filters = parseAssemblyFilters(params);
   const where = buildAssemblyWhere(filters);
 
-  const [assemblies, importState, marketRows, partners] = await Promise.all([
+  const [assemblies, importState, marketRows, partners, dropdownOptions] = await Promise.all([
     prisma.assembly.findMany({
       where,
       orderBy: [{ assemblyDate: "asc" }, { dealId: "asc" }],
@@ -55,6 +57,7 @@ export default async function AssembliesPage({
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    getAssemblyDropdownOptions(),
   ]);
 
   const markets = marketRows.map((row) => row.market);
@@ -78,6 +81,8 @@ export default async function AssembliesPage({
           <Button type="submit">Refresh from sheet</Button>
         </form>
       </PageHeader>
+
+      <ScheduleAssemblyCard options={dropdownOptions} markets={markets} />
 
       <Suspense fallback={null}>
         <AssemblyFilters filters={filters} markets={markets} partners={partners} />
@@ -127,6 +132,14 @@ export default async function AssembliesPage({
                 installPartnerName={assembly.installPartnerName}
                 deliveryPartnerName={assembly.deliveryPartnerName}
                 submitted={submitted}
+                eventType={assembly.eventType}
+                internalTeam={assembly.internalTeam}
+                issue={assembly.issue}
+                status={assembly.status}
+                priority={assembly.priority}
+                closure={assembly.closure}
+                survey={assembly.survey}
+                fulfilledOn={assembly.fulfilledOn}
               />
             </Link>
           );
