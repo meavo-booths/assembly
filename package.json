@@ -13,7 +13,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@meavo/navigation": "git+https://github.com/meavo-booths/meavo-navigation.git#v0.1.0",
+    "@meavo/navigation": "git+https://github.com/meavo-booths/meavo-navigation.git#v0.1.2",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/client": "^6.1.0",
     "@vercel/blob": "^2.4.0",
