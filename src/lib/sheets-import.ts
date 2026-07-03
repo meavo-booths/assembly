@@ -75,6 +75,7 @@ export async function importAssembliesFromSheet(): Promise<{
       issue: issueFromSheet(row[columns.issue]),
       status: cellString(row, columns.status) || null,
       priority: cellString(row, columns.priority) || null,
+      comments: cellString(row, columns.comments) || null,
       issueCategories: ISSUE_CATEGORY_COLUMN_INDICES.map((index) => cellString(row, index)).filter(
         Boolean,
       ),

@@ -374,6 +374,7 @@ model Assembly {
   issue           AssemblyIssue @default(PENDING)
   status          String?
   priority        String?
+  comments        String?
   issueCategories String[]
 
   installPartner AssemblyPartner?          @relation(fields: [installPartnerId], references: [id], onDelete: SetNull)

@@ -39,6 +39,7 @@ export type AssemblyFormValues = {
   status: string;
   priority: string;
   issueCategories: string[];
+  comments: string;
 };
 
 export function emptyAssemblyFormValues(): AssemblyFormValues {
@@ -62,6 +63,7 @@ export function emptyAssemblyFormValues(): AssemblyFormValues {
     status: "",
     priority: "",
     issueCategories: [],
+    comments: "",
   };
 }
 
@@ -433,6 +435,18 @@ export function ScheduleAssemblyForm({
             </label>
           </div>
         </fieldset>
+
+        <div className="lg:col-span-3">
+          <Field label="Comments">
+            <textarea
+              name="comments"
+              rows={3}
+              defaultValue={initial.comments}
+              placeholder="Issue description and comments"
+              className={`${inputClass} min-h-[5rem] resize-y`}
+            />
+          </Field>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

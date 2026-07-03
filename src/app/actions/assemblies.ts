@@ -38,6 +38,7 @@ type ParsedAssembly = {
   status: string | null;
   priority: string | null;
   issueCategories: string[];
+  comments: string | null;
 };
 
 function parseIsoDateInput(value: string): Date | null {
@@ -86,6 +87,7 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
         .map((value) => String(value).trim())
         .filter(Boolean)
         .slice(0, MAX_ISSUE_CATEGORIES),
+      comments: str(formData, "comments") || null,
     },
   };
 }
@@ -105,6 +107,7 @@ function toSheetFields(data: ParsedAssembly): AssemblySheetFields {
     issue: issueToSheet(data.issue),
     status: data.status ?? "",
     priority: data.priority ?? "",
+    comments: data.comments ?? "",
     issueCategories: data.issueCategories,
   };
 }
@@ -163,6 +166,7 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
       status: data.status,
       priority: data.priority,
       issueCategories: data.issueCategories,
+      comments: data.comments,
       sheetRowNumber: rowNumber,
       lastImportedAt: new Date(),
     },
@@ -229,6 +233,7 @@ export async function updateAssembly(formData: FormData): Promise<{ error?: stri
       status: data.status,
       priority: data.priority,
       issueCategories: data.issueCategories,
+      comments: data.comments,
       sheetRowNumber: rowNumber,
       sheetSyncError: null,
     },

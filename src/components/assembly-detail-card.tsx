@@ -90,6 +90,7 @@ export function AssemblyDetailCard({
         <Detail label="Status" value={v.status} />
         <Detail label="Priority" value={v.priority} />
         <Detail label="Issue category" value={v.issueCategories.join(", ")} />
+        <Detail label="Comments" value={v.comments} />
       </dl>
     </Card>
   );

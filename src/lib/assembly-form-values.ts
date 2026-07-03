@@ -34,5 +34,6 @@ export function toAssemblyFormValues(a: Assembly): AssemblyFormValues {
     status: a.status ?? "",
     priority: a.priority ?? "",
     issueCategories: a.issueCategories,
+    comments: a.comments ?? "",
   };
 }

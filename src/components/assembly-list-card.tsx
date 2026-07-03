@@ -44,15 +44,6 @@ function issueChipClass(issue: string): string {
   return "bg-amber-100 text-amber-900";
 }
 
-function PartnerField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-0.5 text-sm text-slate-800">{value || "—"}</p>
-    </div>
-  );
-}
-
 export function AssemblyListCard({
   dealId,
   clientName,
@@ -74,8 +65,8 @@ export function AssemblyListCard({
   const showInternal = internalTeam && internalTeam !== "NO";
 
   return (
-    <Card className="transition hover:border-brand-500">
-      <div className="flex items-start justify-between gap-3">
+    <Card className="!p-3 transition hover:border-brand-500 sm:!p-4">
+      <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <p className="min-w-0 truncate font-medium text-slate-900">{dealId}</p>
           {eventType && (
@@ -91,20 +82,17 @@ export function AssemblyListCard({
               : "shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
           }
         >
-          {submitted ? "Questionnaire completed" : "Not completed"}
+          {submitted ? "Completed" : "Not completed"}
         </span>
       </div>
 
-      <p className="mt-1 truncate text-sm text-slate-600">{clientName || "Unknown client"}</p>
+      <p className="mt-0.5 truncate text-sm text-slate-600">{clientName || "Unknown client"}</p>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-2 flex flex-wrap gap-1.5">
         <MetaChip>{formatDate(assemblyDate)}</MetaChip>
         {market ? <MetaChip>{market}</MetaChip> : null}
         {channelType ? <MetaChip>{channelType}</MetaChip> : null}
         {showInternal ? <MetaChip>Internal: {internalTeamLabel(internalTeam)}</MetaChip> : null}
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-1.5">
         {issue ? (
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${issueChipClass(issue)}`}>
             Issue: {issueLabel(issue)}
@@ -115,11 +103,8 @@ export function AssemblyListCard({
         {closure ? <MetaChip>Closure ✓</MetaChip> : null}
         {survey ? <MetaChip>Survey ✓</MetaChip> : null}
         {fulfilledOn ? <MetaChip>Fulfilled {formatDate(fulfilledOn)}</MetaChip> : null}
-      </div>
-
-      <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-2">
-        <PartnerField label="Install" value={installPartnerName} />
-        <PartnerField label="Delivery" value={deliveryPartnerName} />
+        {installPartnerName ? <MetaChip>Install: {installPartnerName}</MetaChip> : null}
+        {deliveryPartnerName ? <MetaChip>Delivery: {deliveryPartnerName}</MetaChip> : null}
       </div>
     </Card>
   );

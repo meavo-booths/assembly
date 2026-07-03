@@ -12,7 +12,7 @@ import {
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
 
-/** Sheet-mirrored fields written on create/edit (columns A–M + O–S). */
+/** Sheet-mirrored fields written on create/edit (columns A–N + O–S). */
 export type AssemblySheetFields = {
   assemblyDate: Date | null;
   dealId: string;
@@ -27,6 +27,7 @@ export type AssemblySheetFields = {
   issue: string;
   status: string;
   priority: string;
+  comments: string;
   issueCategories: string[];
 };
 
@@ -46,6 +47,7 @@ function buildRow(fields: AssemblySheetFields): string[] {
   row[c.issue] = fields.issue;
   row[c.status] = fields.status;
   row[c.priority] = fields.priority;
+  row[c.comments] = fields.comments;
   // Issue categories spread across O–S; unused columns are cleared.
   ISSUE_CATEGORY_COLUMN_INDICES.forEach((columnIndex, i) => {
     row[columnIndex] = fields.issueCategories[i] ?? "";
@@ -100,8 +102,7 @@ export async function findSheetRowByDealId(dealId: string): Promise<number | nul
 }
 
 /**
- * Update the mapped columns of an existing sheet row. Column N (index 13) is
- * left untouched by writing A–M and O–S as two separate ranges.
+ * Update the mapped columns of an existing sheet row (A–N and O–S).
  */
 export async function updateAssemblyRow(
   rowNumber: number,
@@ -111,7 +112,7 @@ export async function updateAssemblyRow(
   const spreadsheetId = getSpreadsheetId();
   const row = buildRow(fields);
 
-  const priorityLetter = columnLetter(ASSEMBLY_SHEET_COLUMNS.priority); // M
+  const commentsLetter = columnLetter(ASSEMBLY_SHEET_COLUMNS.comments); // N
   const firstCategoryLetter = columnLetter(ISSUE_CATEGORY_COLUMN_INDICES[0]); // O
   const lastCategoryLetter = columnLetter(
     ISSUE_CATEGORY_COLUMN_INDICES[ISSUE_CATEGORY_COLUMN_INDICES.length - 1],
@@ -124,8 +125,8 @@ export async function updateAssemblyRow(
       valueInputOption: "USER_ENTERED",
       data: [
         {
-          range: `'${ASSEMBLY_SHEET_TAB}'!A${rowNumber}:${priorityLetter}${rowNumber}`,
-          values: [row.slice(0, ASSEMBLY_SHEET_COLUMNS.priority + 1)],
+          range: `'${ASSEMBLY_SHEET_TAB}'!A${rowNumber}:${commentsLetter}${rowNumber}`,
+          values: [row.slice(0, ASSEMBLY_SHEET_COLUMNS.comments + 1)],
         },
         {
           range: `'${ASSEMBLY_SHEET_TAB}'!${firstCategoryLetter}${rowNumber}:${lastCategoryLetter}${rowNumber}`,
