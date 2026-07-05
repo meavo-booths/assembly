@@ -11,6 +11,7 @@ export const MEVAO_RESERVED_SEGMENTS = new Set([
   "questionnaire",
   "resources",
   "assemblies",
+  "calendar",
   "api",
   "_next",
 ]);

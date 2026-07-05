@@ -43,6 +43,7 @@ export function QuestionnaireLanguagePicker({
           <button
             key={option}
             type="button"
+            aria-pressed={locale === option}
             onClick={() => selectLocale(option)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition ${
               locale === option

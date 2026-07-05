@@ -58,6 +58,7 @@ export function Input({
   required,
   placeholder,
   autoComplete,
+  minLength,
 }: {
   label: string;
   name: string;
@@ -66,6 +67,7 @@ export function Input({
   required?: boolean;
   placeholder?: string;
   autoComplete?: string;
+  minLength?: number;
 }) {
   return (
     <label className="block space-y-1 text-sm">
@@ -77,6 +79,7 @@ export function Input({
         required={required}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        minLength={minLength}
         className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
       />
     </label>

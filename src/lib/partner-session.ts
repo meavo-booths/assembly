@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 const COOKIE_NAME = "assembly_partner";
 
 function getSecret(): string {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET is not set");
+  // Dedicated secret so partner cookies can be rotated independently of
+  // NextAuth sessions; falls back to AUTH_SECRET for existing deployments.
+  const secret = process.env.PARTNER_SESSION_SECRET || process.env.AUTH_SECRET;
+  if (!secret) throw new Error("PARTNER_SESSION_SECRET or AUTH_SECRET must be set");
   return secret;
 }
 

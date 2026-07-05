@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { QuestionnaireLocale } from "@prisma/client";
+import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 import { loadLocalizedQuestionnaireSections } from "@/lib/questionnaire-i18n";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +13,7 @@ export default async function QuestionnairePreviewPage({
 }: {
   searchParams: Promise<{ lang?: string; mode?: string }>;
 }) {
+  await requireMeavoAccess();
   const { lang, mode } = await searchParams;
   const partnerView = mode === "partner";
 

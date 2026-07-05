@@ -42,8 +42,14 @@ export function QuestionnaireWizard({
   const [pending, startTransition] = useTransition();
   const [compressing, setCompressing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadedCount, setUploadedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [previewComplete, setPreviewComplete] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [failedSave, setFailedSave] = useState<{
+    questionId: string;
+    answer: Parameters<typeof saveQuestionAnswer>[3];
+  } | null>(null);
 
   const steps = useMemo(() => buildWizardSteps(sections, answers), [sections, answers]);
   const currentStep = steps[step];
@@ -66,10 +72,39 @@ export function QuestionnaireWizard({
 
   function persistAnswer(questionId: string, answer: Parameters<typeof saveQuestionAnswer>[3]) {
     if (preview || !slug || !dealId) return;
+    setSaveState("saving");
     startTransition(async () => {
-      await saveQuestionAnswer(slug, dealId, questionId, answer);
+      try {
+        await saveQuestionAnswer(slug, dealId, questionId, answer);
+        setSaveState("saved");
+        setFailedSave(null);
+      } catch {
+        setSaveState("error");
+        setFailedSave({ questionId, answer });
+      }
     });
   }
+
+  function retryFailedSave() {
+    if (!failedSave) return;
+    persistAnswer(failedSave.questionId, failedSave.answer);
+  }
+
+  const saveIndicator =
+    preview || saveState === "idle" ? null : (
+      <div aria-live="polite" className="mb-3 text-center text-xs">
+        {saveState === "saving" && <span className="text-slate-500">{ui.saving}</span>}
+        {saveState === "saved" && <span className="text-emerald-600">{ui.saved}</span>}
+        {saveState === "error" && (
+          <span className="text-red-600">
+            {ui.saveFailed}{" "}
+            <button type="button" className="font-medium underline" onClick={retryFailedSave}>
+              {ui.retrySave}
+            </button>
+          </span>
+        )}
+      </div>
+    );
 
   if (previewComplete) {
     return (
@@ -140,6 +175,8 @@ export function QuestionnaireWizard({
         {ui.step(step + 1, totalSteps)}
       </p>
 
+      {saveIndicator}
+
       {currentStep.kind === "section" && (
         <Card>
           <p className="text-lg font-medium text-slate-900">{currentStep.title}</p>
@@ -199,6 +236,7 @@ export function QuestionnaireWizard({
                 <button
                   key={option.label}
                   type="button"
+                  aria-pressed={selected}
                   className={`rounded-lg border px-4 py-3 text-base font-medium transition ${
                     selected
                       ? "border-brand-600 bg-brand-50 text-brand-800"
@@ -340,69 +378,107 @@ export function QuestionnaireWizard({
               </div>
             </div>
           ) : (
-            <form
-              className="mt-4 space-y-4"
-              action={async (formData) => {
-                setError(null);
-                if (!slug || !dealId) return;
+            <div className="mt-4 space-y-4">
+              <form
+                id="photo-upload-form"
+                className="space-y-4"
+                action={async (formData) => {
+                  setError(null);
+                  if (!slug || !dealId) return;
 
-                const files = formData
-                  .getAll("photos")
-                  .filter((f): f is File => f instanceof File && f.size > 0);
-                if (files.some((f) => f.size > MAX_SOURCE_PHOTO_BYTES)) {
-                  setError(MAX_SOURCE_PHOTO_ERROR);
-                  return;
-                }
-
-                setCompressing(true);
-                let compressedFiles: File[];
-                try {
-                  compressedFiles = await Promise.all(files.map(compressPhotoForUpload));
-                } catch {
-                  setError(COMPRESS_PHOTO_ERROR);
-                  return;
-                } finally {
-                  setCompressing(false);
-                }
-
-                const compressedFormData = new FormData();
-                for (const file of compressedFiles) {
-                  compressedFormData.append("photos", file);
-                }
-
-                setUploading(true);
-                try {
-                  const upload = await uploadSubmissionPhotos(slug, dealId, compressedFormData);
-                  if (upload.error) {
-                    setError(upload.error);
+                  const files = formData
+                    .getAll("photos")
+                    .filter((f): f is File => f instanceof File && f.size > 0);
+                  if (files.length === 0) return;
+                  if (files.some((f) => f.size > MAX_SOURCE_PHOTO_BYTES)) {
+                    setError(MAX_SOURCE_PHOTO_ERROR);
                     return;
                   }
-                  await submitQuestionnaire(slug, dealId);
-                } finally {
-                  setUploading(false);
-                }
-              }}
-            >
-              <input
-                name="photos"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                className="block w-full text-sm"
-              />
-              <p className="text-xs text-slate-500">{ui.photosCompressHint}</p>
-              {hasPhotos && <p className="text-xs text-slate-500">{ui.photosAddMore}</p>}
+
+                  setCompressing(true);
+                  let compressedFiles: File[];
+                  try {
+                    compressedFiles = await Promise.all(files.map(compressPhotoForUpload));
+                  } catch {
+                    setError(COMPRESS_PHOTO_ERROR);
+                    return;
+                  } finally {
+                    setCompressing(false);
+                  }
+
+                  const compressedFormData = new FormData();
+                  for (const file of compressedFiles) {
+                    compressedFormData.append("photos", file);
+                  }
+
+                  setUploading(true);
+                  try {
+                    const upload = await uploadSubmissionPhotos(slug, dealId, compressedFormData);
+                    if (upload.error) {
+                      setError(upload.error);
+                      return;
+                    }
+                    setUploadedCount((count) => count + compressedFiles.length);
+                    (document.getElementById("photo-upload-form") as HTMLFormElement)?.reset();
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
+              >
+                <label className="block space-y-1 text-sm">
+                  <span className="font-medium text-slate-700">{ui.photosTitle}</span>
+                  <input
+                    name="photos"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    className="block w-full text-sm"
+                  />
+                </label>
+                <p className="text-xs text-slate-500">{ui.photosCompressHint}</p>
+                {(hasPhotos || uploadedCount > 0) && (
+                  <p className="text-xs text-slate-500">
+                    {uploadedCount > 0 && `${ui.photosUploaded(uploadedCount)} `}
+                    {ui.photosAddMore}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={compressing || uploading}
+                >
+                  {compressing ? ui.compressing : uploading ? ui.uploading : ui.uploadPhotos}
+                </Button>
+              </form>
+
+              {!hasPhotos && uploadedCount === 0 && (
+                <p className="text-xs text-slate-500">{ui.photosRequired}</p>
+              )}
               {error && <p className="text-sm text-red-600">{error}</p>}
+
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
                   {ui.back}
                 </Button>
-                <Button type="submit" className="flex-1" disabled={compressing || uploading}>
-                  {compressing ? ui.compressing : uploading ? ui.submitting : ui.submit}
+                <Button
+                  type="button"
+                  className="flex-1"
+                  disabled={
+                    compressing || uploading || pending || (!hasPhotos && uploadedCount === 0)
+                  }
+                  onClick={() => {
+                    setError(null);
+                    startTransition(async () => {
+                      if (slug && dealId) await submitQuestionnaire(slug, dealId);
+                    });
+                  }}
+                >
+                  {pending ? ui.submitting : ui.submit}
                 </Button>
               </div>
-            </form>
+            </div>
           )}
         </Card>
       )}

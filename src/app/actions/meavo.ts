@@ -21,11 +21,14 @@ export async function refreshFromSheet(): Promise<void> {
   revalidatePath("/partners");
 }
 
+const MIN_ACCESS_CODE_LENGTH = 8;
+
 export async function setPartnerAccessCode(formData: FormData): Promise<void> {
   await requireMeavoAccess();
   const partnerId = String(formData.get("partnerId") ?? "");
   const code = String(formData.get("code") ?? "").trim();
   if (!partnerId) return;
+  if (code && code.length < MIN_ACCESS_CODE_LENGTH) return;
 
   await prisma.assemblyPartner.update({
     where: { id: partnerId },
@@ -50,11 +53,26 @@ export async function updatePartnerSlug(formData: FormData): Promise<void> {
   revalidatePath("/partners");
 }
 
+export async function updatePartnerEmail(formData: FormData): Promise<void> {
+  await requireMeavoAccess();
+  const partnerId = String(formData.get("partnerId") ?? "");
+  const email = String(formData.get("email") ?? "").trim();
+  if (!partnerId) return;
+
+  await prisma.assemblyPartner.update({
+    where: { id: partnerId },
+    data: { email: email || null },
+  });
+  revalidatePath("/partners");
+}
+
 export async function createPartner(formData: FormData): Promise<void> {
   await requireMeavoAccess();
   const name = String(formData.get("name") ?? "").trim();
   const code = String(formData.get("code") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
   if (!name) return;
+  if (code && code.length < MIN_ACCESS_CODE_LENGTH) return;
 
   const slugBase = slugifyPartnerName(name);
   let slug = slugBase;
@@ -68,6 +86,7 @@ export async function createPartner(formData: FormData): Promise<void> {
     data: {
       name,
       slug,
+      email: email || null,
       codeHash: code ? await hashSecret(code) : null,
     },
   });

@@ -17,6 +17,8 @@ import { Card } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
+
 export default async function AssembliesPage({
   searchParams,
 }: {
@@ -27,6 +29,7 @@ export default async function AssembliesPage({
     market?: string;
     partner?: string;
     q?: string;
+    page?: string;
   }>;
 }) {
   await requireMeavoAccess();
@@ -34,6 +37,14 @@ export default async function AssembliesPage({
   const params = await searchParams;
   const filters = parseAssemblyFilters(params);
   const where = buildAssemblyWhere(filters);
+
+  const totalAssemblies = await prisma.assembly.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalAssemblies / PAGE_SIZE));
+  const requestedPage = Number(params.page);
+  const page = Math.min(
+    totalPages,
+    Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1,
+  );
 
   const [assemblies, importState, marketRows, partners, dropdownOptions, partnerSuggestions] =
     await Promise.all([
@@ -44,7 +55,8 @@ export default async function AssembliesPage({
         installPartner: true,
         submissions: { select: { status: true } },
       },
-      take: 500,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
     prisma.sheetImportState.findUnique({ where: { id: "default" } }),
     prisma.assembly.findMany({
@@ -64,6 +76,17 @@ export default async function AssembliesPage({
 
   const markets = marketRows.map((row) => row.market);
   const dateLabel = formatFilterDateLabel(filters);
+
+  const pageHref = (target: number) => {
+    const query = new URLSearchParams();
+    for (const key of ["date", "from", "to", "market", "partner", "q"] as const) {
+      const value = params[key];
+      if (value) query.set(key, value);
+    }
+    if (target > 1) query.set("page", String(target));
+    const qs = query.toString();
+    return qs ? `/?${qs}` : "/";
+  };
   const marketLabel = filters.market ?? "All markets";
   const partnerLabel =
     partners.find((partner) => partner.id === filters.partnerId)?.name ?? "All partners";
@@ -84,7 +107,8 @@ export default async function AssembliesPage({
       </div>
 
       <p className="mb-4 text-sm text-slate-500">
-        Showing {assemblies.length} {assemblies.length === 1 ? "assembly" : "assemblies"} for{" "}
+        Showing {assemblies.length} of {totalAssemblies}{" "}
+        {totalAssemblies === 1 ? "assembly" : "assemblies"} for{" "}
         <span className="font-medium text-slate-700">{dateLabel}</span>
         {filters.market ? (
           <>
@@ -146,6 +170,28 @@ export default async function AssembliesPage({
               refresh from the sheet.
             </p>
           </Card>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between text-sm text-slate-600">
+            {page > 1 ? (
+              <Link href={pageHref(page - 1)} className="font-medium text-brand-700 hover:underline">
+                ← Previous
+              </Link>
+            ) : (
+              <span />
+            )}
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link href={pageHref(page + 1)} className="font-medium text-brand-700 hover:underline">
+                Next →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </div>
         )}
       </div>
     </>

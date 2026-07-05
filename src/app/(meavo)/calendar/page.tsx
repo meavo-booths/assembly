@@ -5,7 +5,6 @@ import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { toAssemblyFormValues, toIsoDate } from "@/lib/assembly-form-values";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -85,20 +84,14 @@ export default async function CalendarPage({
   }));
 
   return (
-    <>
-      <PageHeader
-        title="Calendar"
-        description="Assemblies by month, coloured by market. Click an event to view or edit it."
-      />
-      <AssemblyCalendar
-        events={events}
-        month={month}
-        market={market}
-        markets={markets}
-        deliveryCompanies={partnerSuggestions.deliveryCompanies}
-        installCompanies={partnerSuggestions.installCompanies}
-        options={options}
-      />
-    </>
+    <AssemblyCalendar
+      events={events}
+      month={month}
+      market={market}
+      markets={markets}
+      deliveryCompanies={partnerSuggestions.deliveryCompanies}
+      installCompanies={partnerSuggestions.installCompanies}
+      options={options}
+    />
   );
 }

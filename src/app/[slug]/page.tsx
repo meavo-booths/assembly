@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SubmissionStatus } from "@prisma/client";
-import { partnerLogin, partnerLogout } from "@/app/actions/partner";
+import { partnerLogout } from "@/app/actions/partner";
 import { requirePartnerSession } from "@/lib/partner-session";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
-import { Button, Card, Input } from "@/components/ui";
+import { PartnerLoginForm } from "@/components/partner-login-form";
+import { Button, Card } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -39,18 +40,7 @@ export default async function PartnerPortalPage({
         <Card className="w-full max-w-md">
           <h1 className="text-xl font-semibold text-slate-900">{partnerRecord.name}</h1>
           <p className="mt-2 text-sm text-slate-600">Enter your access code to view assemblies.</p>
-          <form
-            action={async (formData) => {
-              "use server";
-              await partnerLogin(slug, formData);
-            }}
-            className="mt-6 space-y-4"
-          >
-            <Input label="Access code" name="code" type="password" required autoComplete="off" />
-            <Button type="submit" className="w-full">
-              Continue
-            </Button>
-          </form>
+          <PartnerLoginForm slug={slug} />
         </Card>
       </div>
     );
