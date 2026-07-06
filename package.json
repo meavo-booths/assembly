@@ -9,12 +9,10 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "db:generate": "prisma generate",
-    "db:execute": "prisma db execute",
+    "db:execute": "prisma db execute --schema node_modules/@meavo/db/prisma/schema.prisma",
+    "db:execute:assembly-time": "prisma db execute --schema node_modules/@meavo/db/prisma/schema.prisma --file prisma/sql/assembly_time.sql",
     "db:push": "echo 'db:push is disabled. The shared schema lives in the meavo-db repo (github.com/meavo-booths/meavo-db) — make changes there.' && exit 1",
     "db:seed": "tsx prisma/seed.ts"
-  },
-  "prisma": {
-    "schema": "node_modules/@meavo/db/prisma/schema.prisma"
   },
   "dependencies": {
     "@meavo/db": "github:meavo-booths/meavo-db#v0.2.2",
@@ -39,6 +37,7 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "dotenv": "^16.4.7",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.1.0",
     "postcss": "^8.4.49",
