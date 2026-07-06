@@ -21,7 +21,7 @@ export default async function ResourcesPage() {
   return (
     <>
       <PageHeader
-        title="Resource library"
+        title="Partner resources"
         description="Assembly guides and troubleshooting resources for partner portals. Resources are published immediately when added."
       >
         <Link

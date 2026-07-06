@@ -1,10 +1,10 @@
-import { MeavoNavBar } from "@meavo/navigation";
 import {
   getAccessibleTools,
   isMeavoAppKey,
   resolveCurrentToolId,
 } from "@meavo/navigation/server";
 import { signOutAction } from "@/app/actions/auth";
+import { AssemblyNavBar } from "@/components/assembly-nav-bar";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -13,14 +13,6 @@ const MEAVO_APP_KEY = isMeavoAppKey(process.env.MEAVO_APP_KEY)
   : "assembly";
 
 const GATEWAY_URL = process.env.GATEWAY_URL ?? "https://meavo.app";
-
-const links = [
-  { href: "/", label: "Assemblies" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/partners", label: "Partners" },
-  { href: "/questionnaire", label: "Questionnaire" },
-  { href: "/resources", label: "Resource library" },
-];
 
 export async function Nav() {
   const session = await auth();
@@ -39,8 +31,7 @@ export async function Nav() {
   });
 
   return (
-    <MeavoNavBar
-      links={links}
+    <AssemblyNavBar
       logoHref={GATEWAY_URL}
       toolSwitcher={{
         currentId: resolveCurrentToolId(toolOptions, MEAVO_APP_KEY),
