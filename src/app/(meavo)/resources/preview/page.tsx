@@ -26,7 +26,7 @@ export default async function ResourcesPreviewPage({
   return (
     <div className="mx-auto max-w-lg">
       <PageHeader
-        title="Resource library preview"
+        title="Partner resources preview"
         description="Browse resources as a partner would see them in their portal."
       />
 

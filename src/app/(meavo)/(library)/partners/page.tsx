@@ -2,7 +2,7 @@ import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 import { createPartner } from "@/app/actions/meavo";
 import { PartnerCard } from "@/components/partner-card";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Card, Input, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,11 @@ export default async function PartnersPage() {
 
   return (
     <>
+      <PageHeader
+        title="Partners"
+        description="Manage assembly partners and the access codes for their portals."
+      />
+
       <Card className="mb-6">
         <h2 className="font-medium text-slate-900">Add partner</h2>
         <form action={createPartner} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
