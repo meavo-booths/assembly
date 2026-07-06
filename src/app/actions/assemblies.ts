@@ -21,6 +21,7 @@ import { MAX_ISSUE_CATEGORIES } from "@/lib/sheets-columns";
 type ParsedAssembly = {
   dealId: string;
   assemblyDate: Date | null;
+  assemblyTime: string | null;
   market: string;
   clientName: string;
   channelType: string;
@@ -49,6 +50,13 @@ function parseIsoDateInput(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function parseAssemblyTime(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^\d{2}:\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
@@ -66,6 +74,7 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
     data: {
       dealId,
       assemblyDate: parseIsoDateInput(str(formData, "assemblyDate")),
+      assemblyTime: parseAssemblyTime(str(formData, "assemblyTime")),
       market,
       clientName,
       channelType: str(formData, "channelType"),
@@ -147,6 +156,7 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
     data: {
       dealId: data.dealId,
       assemblyDate: data.assemblyDate,
+      assemblyTime: data.assemblyTime,
       market: data.market,
       clientName: data.clientName,
       channelType: data.channelType,
@@ -215,6 +225,7 @@ export async function updateAssembly(formData: FormData): Promise<{ error?: stri
     where: { id },
     data: {
       assemblyDate: data.assemblyDate,
+      assemblyTime: data.assemblyTime,
       market: data.market,
       clientName: data.clientName,
       channelType: data.channelType,

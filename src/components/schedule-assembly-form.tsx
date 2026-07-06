@@ -22,6 +22,7 @@ export type AssemblyFormValues = {
   id?: string;
   dealId: string;
   assemblyDate: string;
+  assemblyTime: string;
   market: string;
   clientName: string;
   channelType: string;
@@ -46,6 +47,7 @@ export function emptyAssemblyFormValues(): AssemblyFormValues {
   return {
     dealId: "",
     assemblyDate: "",
+    assemblyTime: "",
     market: "",
     clientName: "",
     channelType: "",
@@ -358,6 +360,14 @@ export function ScheduleAssemblyForm({
               type="date"
               name="assemblyDate"
               defaultValue={initial.assemblyDate}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Assembly time (London)">
+            <input
+              type="time"
+              name="assemblyTime"
+              defaultValue={initial.assemblyTime}
               className={inputClass}
             />
           </Field>

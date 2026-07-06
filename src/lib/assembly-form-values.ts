@@ -17,6 +17,7 @@ export function toAssemblyFormValues(a: Assembly): AssemblyFormValues {
     id: a.id,
     dealId: a.dealId,
     assemblyDate: toIsoDate(a.assemblyDate),
+    assemblyTime: a.assemblyTime ?? "",
     market: a.market,
     clientName: a.clientName,
     channelType: a.channelType,
