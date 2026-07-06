@@ -54,6 +54,7 @@ export default async function AssembliesPage({
       include: {
         installPartner: true,
         submissions: { select: { status: true } },
+        linkedDeal: { select: { client: { select: { isVip: true } } } },
       },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -145,6 +146,7 @@ export default async function AssembliesPage({
               <AssemblyListCard
                 dealId={assembly.dealId}
                 clientName={assembly.clientName}
+                isVip={assembly.linkedDeal?.client?.isVip ?? false}
                 channelType={assembly.channelType}
                 assemblyDate={assembly.assemblyDate}
                 market={assembly.market}

@@ -3,6 +3,7 @@
  * stacked white boxes matching the sales app's deal page design.
  */
 import Link from "next/link";
+import { VipBadge } from "@/components/ui";
 
 export type LinkedDealContact = {
   kind: string;
@@ -16,6 +17,8 @@ export type LinkedDealSummary = {
   dealId: string;
   quoteNumber: string;
   clientName: string;
+  /** VIP flag of the linked client — surfaces the sales app's VIP label here. */
+  isVip: boolean;
   dealDate: string;
   salesRep: string;
   market: string;
@@ -65,9 +68,12 @@ export function LinkedDealBoxes({
             )}
             <span className="ml-2 text-sm font-normal text-slate-500">{deal.quoteNumber}</span>
           </h3>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-            {deal.paymentStatus}
-          </span>
+          <div className="flex items-center gap-2">
+            {deal.isVip && <VipBadge />}
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+              {deal.paymentStatus}
+            </span>
+          </div>
         </div>
 
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

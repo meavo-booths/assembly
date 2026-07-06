@@ -24,6 +24,7 @@ export default async function ReadyDealsPage() {
       include: {
         contacts: { orderBy: { sortOrder: "asc" } },
         lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
+        client: { select: { isVip: true } },
       },
     }),
     getAssemblyDropdownOptions(),

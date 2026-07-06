@@ -8,7 +8,7 @@ import {
 } from "@/components/schedule-assembly-form";
 import type { LinkedDealSummary } from "@/components/linked-deal-card";
 import type { SheetDropdownOptions } from "@/lib/assembly-schedule";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, VipBadge } from "@/components/ui";
 
 export type LinkedAssemblySummary = {
   dealId: string;
@@ -115,6 +115,7 @@ export function ReadyDealCard({
               {deal.dealId}
             </Link>
             <span className="text-sm text-slate-500">{deal.quoteNumber}</span>
+            {deal.isVip && <VipBadge />}
             <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
               Ready to assemble
             </span>

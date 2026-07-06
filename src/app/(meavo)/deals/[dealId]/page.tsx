@@ -31,6 +31,7 @@ export default async function DealDetailPage({
     include: {
       contacts: { orderBy: { sortOrder: "asc" } },
       lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
+      client: { select: { isVip: true } },
     },
   });
   if (!deal || !deal.dealId) notFound();

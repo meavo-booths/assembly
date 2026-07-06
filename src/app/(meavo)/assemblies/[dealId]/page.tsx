@@ -7,7 +7,7 @@ import { toAssemblyFormValues } from "@/lib/assembly-form-values";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { prisma } from "@/lib/prisma";
-import { Card, PageHeader } from "@/components/ui";
+import { Card, PageHeader, VipBadge } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -50,10 +50,20 @@ export default async function AssemblyDetailPage({
   const markets = marketRows.map((row) => row.market);
   const formValues = toAssemblyFormValues(assembly);
 
+  // The VIP label follows the client from the sales app onto every linked assembly.
+  const linkedDeal = assembly.linkedDealId
+    ? await prisma.deal.findUnique({
+        where: { dealId: assembly.linkedDealId },
+        select: { client: { select: { isVip: true } } },
+      })
+    : null;
+  const isVip = linkedDeal?.client?.isVip ?? false;
+
   return (
     <>
       <PageHeader title={assembly.dealId} description={assembly.clientName}>
         <div className="flex flex-wrap items-center gap-3">
+          {isVip && <VipBadge />}
           {assembly.linkedDealId && (
             <Link
               href={`/deals/${encodeURIComponent(assembly.linkedDealId)}`}

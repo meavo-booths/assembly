@@ -4,11 +4,13 @@ import {
   internalTeamLabel,
   issueLabel,
 } from "@/lib/assembly-schedule";
-import { Card } from "@/components/ui";
+import { Card, VipBadge } from "@/components/ui";
 
 export type AssemblyListCardProps = {
   dealId: string;
   clientName: string;
+  /** VIP flag of the linked deal's client. */
+  isVip?: boolean;
   channelType: string;
   assemblyDate: Date | null;
   market: string;
@@ -47,6 +49,7 @@ function issueChipClass(issue: string): string {
 export function AssemblyListCard({
   dealId,
   clientName,
+  isVip,
   channelType,
   assemblyDate,
   market,
@@ -69,6 +72,11 @@ export function AssemblyListCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <p className="min-w-0 truncate font-medium text-slate-900">{dealId}</p>
+          {isVip && (
+            <span className="shrink-0">
+              <VipBadge />
+            </span>
+          )}
           {eventType && (
             <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
               {eventTypeLabel(eventType)}

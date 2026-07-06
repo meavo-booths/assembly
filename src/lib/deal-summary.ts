@@ -10,7 +10,11 @@ import { emptyAssemblyFormValues } from "@/lib/assembly-form-values";
 import { clientTypeToChannel } from "@/lib/assembly-schedule";
 
 export type DealForSummary = Prisma.DealGetPayload<{
-  include: { contacts: true; lineItems: { include: { product: true } } };
+  include: {
+    contacts: true;
+    lineItems: { include: { product: true } };
+    client: { select: { isVip: true } };
+  };
 }>;
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
@@ -38,6 +42,7 @@ export function buildLinkedDealSummary(deal: DealForSummary): LinkedDealSummary 
     dealId: deal.dealId ?? "",
     quoteNumber: deal.quoteNumber,
     clientName: deal.clientName,
+    isVip: deal.client?.isVip ?? false,
     dealDate: formatDealDate(deal.dealDate),
     salesRep: deal.salesRep,
     market: deal.market,
