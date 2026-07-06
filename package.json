@@ -9,6 +9,7 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "db:generate": "prisma generate",
+    "db:execute": "prisma db execute",
     "db:push": "echo 'db:push is disabled. The shared schema lives in the meavo-db repo (github.com/meavo-booths/meavo-db) — make changes there.' && exit 1",
     "db:seed": "tsx prisma/seed.ts"
   },
