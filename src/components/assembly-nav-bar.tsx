@@ -4,6 +4,7 @@ import { MeavoNavBar, type NavLink, type ToolSwitcherState } from "@meavo/naviga
 
 const links: NavLink[] = [
   { href: "/", label: "Assemblies" },
+  { href: "/deals", label: "Ready deals" },
   { href: "/calendar", label: "Calendar" },
   { href: "/partners", label: "Library" },
 ];

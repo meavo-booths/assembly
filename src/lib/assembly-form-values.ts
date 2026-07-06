@@ -16,6 +16,7 @@ export function toAssemblyFormValues(a: Assembly): AssemblyFormValues {
   return {
     id: a.id,
     dealId: a.dealId,
+    linkedDealId: a.linkedDealId ?? "",
     assemblyDate: toIsoDate(a.assemblyDate),
     assemblyTime: a.assemblyTime ?? "",
     market: a.market,

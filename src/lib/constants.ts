@@ -12,6 +12,7 @@ export const MEVAO_RESERVED_SEGMENTS = new Set([
   "resources",
   "assemblies",
   "calendar",
+  "deals",
   "api",
   "_next",
 ]);

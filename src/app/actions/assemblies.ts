@@ -20,6 +20,7 @@ import { MAX_ISSUE_CATEGORIES } from "@/lib/sheets-columns";
 
 type ParsedAssembly = {
   dealId: string;
+  linkedDealId: string | null;
   assemblyDate: Date | null;
   assemblyTime: string | null;
   market: string;
@@ -66,13 +67,14 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
   const market = str(formData, "market");
   const clientName = str(formData, "clientName");
 
-  if (!dealId) return { error: "Deal ID is required." };
+  if (!dealId) return { error: "Assembly ID is required." };
   if (!market) return { error: "Market is required." };
   if (!clientName) return { error: "Client name is required." };
 
   return {
     data: {
       dealId,
+      linkedDealId: str(formData, "linkedDealId") || null,
       assemblyDate: parseIsoDateInput(str(formData, "assemblyDate")),
       assemblyTime: parseAssemblyTime(str(formData, "assemblyTime")),
       market,
@@ -135,7 +137,12 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
   const data = parsed.data;
 
   const existing = await prisma.assembly.findUnique({ where: { dealId: data.dealId } });
-  if (existing) return { error: `Deal ID "${data.dealId}" already exists.` };
+  if (existing) return { error: `Assembly ID "${data.dealId}" already exists.` };
+
+  if (data.linkedDealId) {
+    const deal = await prisma.deal.findUnique({ where: { dealId: data.linkedDealId } });
+    if (!deal) return { error: `Deal "${data.linkedDealId}" not found.` };
+  }
 
   const installPartnerId = data.installPartnerName
     ? await resolveInstallPartnerId(data.installPartnerName)
@@ -155,6 +162,7 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
   await prisma.assembly.create({
     data: {
       dealId: data.dealId,
+      linkedDealId: data.linkedDealId,
       assemblyDate: data.assemblyDate,
       assemblyTime: data.assemblyTime,
       market: data.market,
@@ -186,7 +194,9 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
   return {};
 }
 
-export async function updateAssembly(formData: FormData): Promise<{ error?: string }> {
+export async function updateAssembly(
+  formData: FormData,
+): Promise<{ error?: string; dealId?: string }> {
   await requireMeavoAccess();
 
   const id = str(formData, "id");
@@ -199,14 +209,20 @@ export async function updateAssembly(formData: FormData): Promise<{ error?: stri
   const assembly = await prisma.assembly.findUnique({ where: { id } });
   if (!assembly) return { error: "Assembly not found." };
 
-  // dealId is the sheet/DB key and is not editable.
-  const dealId = assembly.dealId;
+  // The assembly ID (sheet column B, URL param) is renameable; make sure the
+  // new name is free before touching the sheet.
+  const dealId = data.dealId;
+  if (dealId !== assembly.dealId) {
+    const taken = await prisma.assembly.findUnique({ where: { dealId } });
+    if (taken) return { error: `Assembly ID "${dealId}" already exists.` };
+  }
+
   const sheetData = toSheetFields({ ...data, dealId });
 
-  // Resolve the sheet row (stored number, else look up by deal ID).
+  // Resolve the sheet row (stored number, else look up by the current ID).
   let rowNumber = assembly.sheetRowNumber ?? null;
   try {
-    if (!rowNumber) rowNumber = await findSheetRowByDealId(dealId);
+    if (!rowNumber) rowNumber = await findSheetRowByDealId(assembly.dealId);
     if (!rowNumber) {
       return { error: "Could not find this assembly's row in the Google Sheet." };
     }
@@ -224,6 +240,8 @@ export async function updateAssembly(formData: FormData): Promise<{ error?: stri
   await prisma.assembly.update({
     where: { id },
     data: {
+      dealId,
+      linkedDealId: data.linkedDealId,
       assemblyDate: data.assemblyDate,
       assemblyTime: data.assemblyTime,
       market: data.market,
@@ -250,6 +268,7 @@ export async function updateAssembly(formData: FormData): Promise<{ error?: stri
     },
   });
 
+  if (dealId !== assembly.dealId) revalidateAssemblyViews(assembly.dealId);
   revalidateAssemblyViews(dealId);
-  return {};
+  return { dealId };
 }

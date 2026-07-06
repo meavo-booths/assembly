@@ -13,6 +13,7 @@ import {
   type IssueValue,
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
+import { LinkedDealCard, type LinkedDealSummary } from "@/components/linked-deal-card";
 import { Button } from "@/components/ui";
 
 /** Maximum number of issue categories (sheet columns O–S). */
@@ -21,6 +22,7 @@ const MAX_ISSUE_CATEGORIES = 5;
 export type AssemblyFormValues = {
   id?: string;
   dealId: string;
+  linkedDealId: string;
   assemblyDate: string;
   assemblyTime: string;
   market: string;
@@ -46,6 +48,7 @@ export type AssemblyFormValues = {
 export function emptyAssemblyFormValues(): AssemblyFormValues {
   return {
     dealId: "",
+    linkedDealId: "",
     assemblyDate: "",
     assemblyTime: "",
     market: "",
@@ -217,6 +220,7 @@ export function ScheduleAssemblyForm({
   deliveryCompanies = [],
   installCompanies = [],
   values,
+  deal,
   onSuccess,
 }: {
   mode: "create" | "edit";
@@ -225,6 +229,8 @@ export function ScheduleAssemblyForm({
   deliveryCompanies?: string[];
   installCompanies?: string[];
   values?: AssemblyFormValues;
+  /** When scheduling for a sales deal, its summary is shown below the form. */
+  deal?: LinkedDealSummary;
   onSuccess?: () => void;
 }) {
   const router = useRouter();
@@ -246,7 +252,7 @@ export function ScheduleAssemblyForm({
       action={async (formData) => {
         setError(null);
         setPending(true);
-        const result = mode === "create"
+        const result: { error?: string; dealId?: string } = mode === "create"
           ? await createAssembly(formData)
           : await updateAssembly(formData);
         setPending(false);
@@ -257,12 +263,25 @@ export function ScheduleAssemblyForm({
         if (mode === "create") {
           (document.getElementById(formId) as HTMLFormElement | null)?.reset();
         }
+        // A rename moves the assembly's URL; follow it.
+        if (mode === "edit" && result.dealId && result.dealId !== initial.dealId) {
+          router.push(`/assemblies/${encodeURIComponent(result.dealId)}`);
+          return;
+        }
         router.refresh();
         onSuccess?.();
       }}
     >
       {mode === "edit" && <input type="hidden" name="id" value={initial.id ?? ""} />}
+      <input type="hidden" name="linkedDealId" value={initial.linkedDealId} />
 
+      <div
+        className={
+          deal
+            ? "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+            : undefined
+        }
+      >
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4">
           <Field label="Event type">
@@ -283,19 +302,15 @@ export function ScheduleAssemblyForm({
               ))}
             </select>
           </Field>
-          {mode === "create" ? (
-            <Field label="Deal ID">
+          <div className="space-y-1">
+            <Field label="Assembly ID">
               <input name="dealId" required defaultValue={initial.dealId} className={inputClass} />
             </Field>
-          ) : (
-            <div className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Deal ID</span>
-              <input type="hidden" name="dealId" value={initial.dealId} />
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">
-                {initial.dealId}
-              </p>
-            </div>
-          )}
+            <p className="text-xs text-slate-500">
+              Unique name used in the tracker sheet and links.
+              {mode === "edit" && " Renaming updates the sheet row and this page's URL."}
+            </p>
+          </div>
           <Field label="Market / country">
             <input
               name="market"
@@ -447,7 +462,7 @@ export function ScheduleAssemblyForm({
         </fieldset>
 
         <div className="lg:col-span-2">
-          <Field label="Comments">
+          <Field label="Assembly Comments">
             <textarea
               name="comments"
               rows={3}
@@ -458,6 +473,9 @@ export function ScheduleAssemblyForm({
           </Field>
         </div>
       </div>
+      </div>
+
+      {deal && <LinkedDealCard deal={deal} />}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

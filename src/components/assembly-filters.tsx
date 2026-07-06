@@ -208,7 +208,7 @@ export function AssemblyFilters({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Deal ID or client name"
+            placeholder="Assembly ID or client name"
             className="block w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
           />
         </label>
