@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { QuestionType } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { AssemblyDetailCard } from "@/components/assembly-detail-card";
+import { DeleteAssemblyButton } from "@/components/delete-assembly-button";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
@@ -136,6 +137,10 @@ export default async function AssemblyDetailPage({
           <p className="text-sm text-slate-600">No questionnaire submitted yet.</p>
         </Card>
       )}
+
+      <div className="mt-6">
+        <DeleteAssemblyButton assemblyId={assembly.id} assemblyName={assembly.dealId} />
+      </div>
     </>
   );
 }

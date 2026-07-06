@@ -137,6 +137,22 @@ export async function updateAssemblyRow(
   });
 }
 
+/**
+ * Clear an assembly's sheet row (A–S). The row is cleared rather than deleted
+ * so the stored sheetRowNumber of every other assembly stays valid, and the
+ * importer skips rows with an empty Deal column.
+ */
+export async function clearAssemblyRow(rowNumber: number): Promise<void> {
+  const sheets = await getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+  const lastLetter = columnLetter(ASSEMBLY_SHEET_LAST_COLUMN_INDEX);
+
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: `'${ASSEMBLY_SHEET_TAB}'!A${rowNumber}:${lastLetter}${rowNumber}`,
+  });
+}
+
 type BooleanCondition = {
   type?: string | null;
   values?: { userEnteredValue?: string | null }[] | null;

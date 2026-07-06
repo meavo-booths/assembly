@@ -6,6 +6,7 @@ import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { resolveInstallPartnerId } from "@/lib/assembly-partners";
 import {
   appendAssemblyRow,
+  clearAssemblyRow,
   findSheetRowByDealId,
   updateAssemblyRow,
   type AssemblySheetFields,
@@ -297,4 +298,30 @@ export async function updateAssembly(
   if (dealId !== assembly.dealId) revalidateAssemblyViews(assembly.dealId);
   revalidateAssemblyViews(dealId);
   return { dealId };
+}
+
+export async function deleteAssembly(id: string): Promise<{ error?: string }> {
+  await requireMeavoAccess();
+
+  const assembly = await prisma.assembly.findUnique({ where: { id } });
+  if (!assembly) return { error: "Assembly not found." };
+
+  // Clear the sheet row first (fail closed, like create/update). The row is
+  // blanked rather than removed so other assemblies' row numbers stay valid.
+  try {
+    const rowNumber = assembly.sheetRowNumber ?? (await findSheetRowByDealId(assembly.dealId));
+    if (rowNumber) await clearAssemblyRow(rowNumber);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not write to the Google Sheet.";
+    return { error: `Sheet update failed: ${message}` };
+  }
+
+  // Questionnaire submissions (answers, photos) cascade with the assembly.
+  await prisma.assembly.delete({ where: { id } });
+
+  revalidateAssemblyViews(assembly.dealId);
+  if (assembly.linkedDealId) revalidatePath(`/deals/${assembly.linkedDealId}`);
+  revalidatePath("/deals");
+  return {};
 }
