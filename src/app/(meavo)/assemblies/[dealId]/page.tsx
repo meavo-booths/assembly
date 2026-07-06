@@ -53,9 +53,19 @@ export default async function AssemblyDetailPage({
   return (
     <>
       <PageHeader title={assembly.dealId} description={assembly.clientName}>
-        <Link href="/" className="text-sm text-brand-700 underline">
-          Back to list
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          {assembly.linkedDealId && (
+            <Link
+              href={`/deals/${encodeURIComponent(assembly.linkedDealId)}`}
+              className="text-sm text-brand-700 underline"
+            >
+              Deal {assembly.linkedDealId}
+            </Link>
+          )}
+          <Link href="/" className="text-sm text-brand-700 underline">
+            Back to list
+          </Link>
+        </div>
       </PageHeader>
 
       <AssemblyDetailCard

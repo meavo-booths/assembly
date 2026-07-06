@@ -44,6 +44,20 @@ export const CLIENT_TYPE_OPTIONS = [
 
 export type ClientTypeValue = (typeof CLIENT_TYPE_OPTIONS)[number];
 
+/** Map a sales DealClientType enum value to the sheet's client-type label. */
+export function clientTypeToChannel(value: string | null | undefined): string {
+  switch (value) {
+    case "DIRECT":
+      return "Direct";
+    case "AGENCY":
+      return "Agency";
+    case "COWORKING":
+      return "CoWorking";
+    default:
+      return "";
+  }
+}
+
 const EVENT_TYPE_LABELS = new Map(EVENT_TYPE_OPTIONS.map((o) => [o.value, o.label]));
 const INTERNAL_TEAM_LABELS = new Map(INTERNAL_TEAM_OPTIONS.map((o) => [o.value, o.label]));
 const ISSUE_LABELS = new Map(ISSUE_OPTIONS.map((o) => [o.value, o.label]));

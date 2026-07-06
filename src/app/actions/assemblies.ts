@@ -11,6 +11,7 @@ import {
   type AssemblySheetFields,
 } from "@/lib/sheets-export";
 import {
+  clientTypeToChannel,
   issueToSheet,
   parseEventType,
   parseInternalTeam,
@@ -66,16 +67,21 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
   const dealId = str(formData, "dealId");
   const market = str(formData, "market");
   const clientName = str(formData, "clientName");
+  const linkedDealId = str(formData, "linkedDealId");
 
   if (!dealId) return { error: "Assembly ID is required." };
-  if (!market) return { error: "Market is required." };
+  // With a linked deal the market is inferred from it after parsing.
+  if (!market && !linkedDealId) return { error: "Market is required." };
   if (!clientName) return { error: "Client name is required." };
+
+  const assemblyDate = parseIsoDateInput(str(formData, "assemblyDate"));
+  if (!assemblyDate) return { error: "Assembly date is required." };
 
   return {
     data: {
       dealId,
-      linkedDealId: str(formData, "linkedDealId") || null,
-      assemblyDate: parseIsoDateInput(str(formData, "assemblyDate")),
+      linkedDealId: linkedDealId || null,
+      assemblyDate,
       assemblyTime: parseAssemblyTime(str(formData, "assemblyTime")),
       market,
       clientName,
@@ -142,7 +148,27 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
   if (data.linkedDealId) {
     const deal = await prisma.deal.findUnique({ where: { dealId: data.linkedDealId } });
     if (!deal) return { error: `Deal "${data.linkedDealId}" not found.` };
+
+    // One active assembly per deal: a new one can only be opened once the
+    // previous one is ticked as closed.
+    const active = await prisma.assembly.findFirst({
+      where: {
+        closure: false,
+        OR: [{ linkedDealId: data.linkedDealId }, { dealId: data.linkedDealId }],
+      },
+      select: { dealId: true },
+    });
+    if (active) {
+      return {
+        error: `Deal ${data.linkedDealId} already has an active assembly (${active.dealId}). Mark it as closed (Closure) before opening another one.`,
+      };
+    }
+
+    // The deal is the source of truth for these when linked.
+    data.market = deal.market || data.market;
+    data.channelType = clientTypeToChannel(deal.clientType) || data.channelType;
   }
+  if (!data.market) return { error: "Market is required." };
 
   const installPartnerId = data.installPartnerName
     ? await resolveInstallPartnerId(data.installPartnerName)

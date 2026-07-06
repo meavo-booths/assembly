@@ -1,7 +1,8 @@
 /**
- * Read-only summary of the sales deal an assembly is being scheduled for.
- * Mirrors the deal details card design from the sales app.
+ * Read-only summary of the sales deal an assembly belongs to, rendered as
+ * stacked white boxes matching the sales app's deal page design.
  */
+import Link from "next/link";
 
 export type LinkedDealContact = {
   kind: string;
@@ -28,6 +29,8 @@ export type LinkedDealSummary = {
   contacts: LinkedDealContact[];
 };
 
+const boxClass = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
+
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -37,47 +40,55 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function LinkedDealCard({ deal }: { deal: LinkedDealSummary }) {
+/**
+ * Sales-style stacked boxes: Details, Contacts, Booths, Deal Notes.
+ * Pass `dealHref` to make the deal heading a link (omit on the deal page itself).
+ */
+export function LinkedDealBoxes({
+  deal,
+  dealHref,
+}: {
+  deal: LinkedDealSummary;
+  dealHref?: string;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-base font-semibold text-slate-900">
-          Deal {deal.dealId}
-          <span className="ml-2 text-sm font-normal text-slate-500">{deal.quoteNumber}</span>
-        </h3>
-        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-          {deal.paymentStatus}
-        </span>
+    <div className="space-y-4">
+      <div className={boxClass}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold text-slate-900">
+            {dealHref ? (
+              <Link href={dealHref} className="text-brand-700 hover:underline">
+                Deal {deal.dealId}
+              </Link>
+            ) : (
+              <>Deal {deal.dealId}</>
+            )}
+            <span className="ml-2 text-sm font-normal text-slate-500">{deal.quoteNumber}</span>
+          </h3>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+            {deal.paymentStatus}
+          </span>
+        </div>
+
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Client" value={deal.clientName} />
+          <Field label="Deal date" value={deal.dealDate} />
+          <Field label="Sales rep" value={deal.salesRep} />
+          <Field label="Market" value={deal.market} />
+          <Field label="Client type" value={deal.clientType} />
+          <Field label="VAT number" value={deal.vatNumber} />
+          <div className="sm:col-span-2 lg:col-span-3">
+            <Field label="Registered address (invoicing)" value={deal.registeredAddress} />
+          </div>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <Field label="Assembly address" value={deal.assemblyAddress} />
+          </div>
+        </dl>
       </div>
 
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Client" value={deal.clientName} />
-        <Field label="Deal date" value={deal.dealDate} />
-        <Field label="Sales rep" value={deal.salesRep} />
-        <Field label="Market" value={deal.market} />
-        <Field label="Client type" value={deal.clientType} />
-        <Field label="VAT number" value={deal.vatNumber} />
-        <div className="sm:col-span-2 lg:col-span-3">
-          <Field label="Booths" value={deal.boothSummary} />
-        </div>
-        <div className="sm:col-span-2 lg:col-span-3">
-          <Field label="Registered address (invoicing)" value={deal.registeredAddress} />
-        </div>
-        <div className="sm:col-span-2 lg:col-span-3">
-          <Field label="Assembly address" value={deal.assemblyAddress} />
-        </div>
-        {deal.notes && (
-          <div className="sm:col-span-2 lg:col-span-3">
-            <Field label="Deal Notes" value={deal.notes} />
-          </div>
-        )}
-      </dl>
-
       {deal.contacts.length > 0 && (
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-            Contacts
-          </p>
+        <div className={boxClass}>
+          <h3 className="mb-3 text-base font-semibold text-slate-900">Contacts</h3>
           <ul className="grid gap-2 sm:grid-cols-2">
             {deal.contacts.map((contact, index) => (
               <li key={index} className="rounded-lg border border-slate-200 p-3 text-sm">
@@ -94,6 +105,20 @@ export function LinkedDealCard({ deal }: { deal: LinkedDealSummary }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {deal.boothSummary && (
+        <div className={boxClass}>
+          <h3 className="mb-2 text-base font-semibold text-slate-900">Booths</h3>
+          <p className="text-sm text-slate-900">{deal.boothSummary}</p>
+        </div>
+      )}
+
+      {deal.notes && (
+        <div className={boxClass}>
+          <h3 className="mb-2 text-base font-semibold text-slate-900">Deal Notes</h3>
+          <p className="whitespace-pre-wrap text-sm text-slate-900">{deal.notes}</p>
         </div>
       )}
     </div>

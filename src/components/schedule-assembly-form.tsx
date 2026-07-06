@@ -13,7 +13,7 @@ import {
   type IssueValue,
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
-import { LinkedDealCard, type LinkedDealSummary } from "@/components/linked-deal-card";
+import { LinkedDealBoxes, type LinkedDealSummary } from "@/components/linked-deal-card";
 import { emptyAssemblyFormValues } from "@/lib/assembly-form-values";
 import { Button } from "@/components/ui";
 
@@ -285,36 +285,46 @@ export function ScheduleAssemblyForm({
               {mode === "edit" && " Renaming updates the sheet row and this page's URL."}
             </p>
           </div>
-          <Field label="Market / country">
-            <input
-              name="market"
-              required
-              list={marketListId}
-              defaultValue={initial.market}
-              className={inputClass}
-            />
-            <datalist id={marketListId}>
-              {markets.map((market) => (
-                <option key={market} value={market} />
-              ))}
-            </datalist>
-          </Field>
+          {deal ? (
+            // Market comes from the deal; the server re-derives it anyway.
+            <input type="hidden" name="market" value={initial.market} />
+          ) : (
+            <Field label="Market / country">
+              <input
+                name="market"
+                required
+                list={marketListId}
+                defaultValue={initial.market}
+                className={inputClass}
+              />
+              <datalist id={marketListId}>
+                {markets.map((market) => (
+                  <option key={market} value={market} />
+                ))}
+              </datalist>
+            </Field>
+          )}
         </div>
 
         <div className="space-y-4">
-          <Field label="Client type">
-            <select name="channelType" defaultValue={initial.channelType} className={inputClass}>
-              <option value="">—</option>
-              {hasLegacyClientType && (
-                <option value={initial.channelType}>{initial.channelType}</option>
-              )}
-              {CLIENT_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {deal ? (
+            // Client type comes from the deal; the server re-derives it anyway.
+            <input type="hidden" name="channelType" value={initial.channelType} />
+          ) : (
+            <Field label="Client type">
+              <select name="channelType" defaultValue={initial.channelType} className={inputClass}>
+                <option value="">—</option>
+                {hasLegacyClientType && (
+                  <option value={initial.channelType}>{initial.channelType}</option>
+                )}
+                {CLIENT_TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Delivery company">
             <input
               name="deliveryPartnerName"
@@ -348,6 +358,7 @@ export function ScheduleAssemblyForm({
             <input
               type="date"
               name="assemblyDate"
+              required
               defaultValue={initial.assemblyDate}
               className={inputClass}
             />
@@ -449,7 +460,12 @@ export function ScheduleAssemblyForm({
       </div>
       </div>
 
-      {deal && <LinkedDealCard deal={deal} />}
+      {deal && (
+        <LinkedDealBoxes
+          deal={deal}
+          dealHref={`/deals/${encodeURIComponent(deal.dealId)}`}
+        />
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
