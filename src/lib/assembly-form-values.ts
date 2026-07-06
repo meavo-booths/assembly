@@ -1,6 +1,37 @@
 import type { Assembly } from "@prisma/client";
 import type { AssemblyFormValues } from "@/components/schedule-assembly-form";
 
+/**
+ * Blank form values. Lives here (not in the "use client" form module) so
+ * server components can call it when building prefills.
+ */
+export function emptyAssemblyFormValues(): AssemblyFormValues {
+  return {
+    dealId: "",
+    linkedDealId: "",
+    assemblyDate: "",
+    assemblyTime: "",
+    market: "",
+    clientName: "",
+    channelType: "",
+    eventType: "ASSEMBLY",
+    internalTeam: "NO",
+    clientEmail: "",
+    clientPhone: "",
+    assemblyAddress: "",
+    deliveryPartnerName: "",
+    installPartnerName: "",
+    closure: false,
+    survey: false,
+    fulfilledOn: "",
+    issue: "PENDING",
+    status: "",
+    priority: "",
+    issueCategories: [],
+    comments: "",
+  };
+}
+
 function pad(n: number): string {
   return String(n).padStart(2, "0");
 }

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { eventTypeLabel } from "@/lib/assembly-schedule";
-import { emptyAssemblyFormValues } from "@/components/schedule-assembly-form";
+import { emptyAssemblyFormValues } from "@/lib/assembly-form-values";
 import { ReadyDealCard, type LinkedAssemblySummary } from "@/components/ready-deal-card";
 import type { LinkedDealSummary } from "@/components/linked-deal-card";
 import { Card, PageHeader } from "@/components/ui";

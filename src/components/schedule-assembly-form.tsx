@@ -14,6 +14,7 @@ import {
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
 import { LinkedDealCard, type LinkedDealSummary } from "@/components/linked-deal-card";
+import { emptyAssemblyFormValues } from "@/lib/assembly-form-values";
 import { Button } from "@/components/ui";
 
 /** Maximum number of issue categories (sheet columns O–S). */
@@ -44,33 +45,6 @@ export type AssemblyFormValues = {
   issueCategories: string[];
   comments: string;
 };
-
-export function emptyAssemblyFormValues(): AssemblyFormValues {
-  return {
-    dealId: "",
-    linkedDealId: "",
-    assemblyDate: "",
-    assemblyTime: "",
-    market: "",
-    clientName: "",
-    channelType: "",
-    eventType: "ASSEMBLY",
-    internalTeam: "NO",
-    clientEmail: "",
-    clientPhone: "",
-    assemblyAddress: "",
-    deliveryPartnerName: "",
-    installPartnerName: "",
-    closure: false,
-    survey: false,
-    fulfilledOn: "",
-    issue: "PENDING",
-    status: "",
-    priority: "",
-    issueCategories: [],
-    comments: "",
-  };
-}
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
