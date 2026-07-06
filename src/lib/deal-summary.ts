@@ -30,8 +30,8 @@ export function formatDealDate(date: Date): string {
 
 export function buildLinkedDealSummary(deal: DealForSummary): LinkedDealSummary {
   const boothSummary = deal.lineItems
-    .filter((item) => item.product.kind === "BOOTH")
-    .map((item) => `${item.quantity}× ${item.product.name}`)
+    .filter((item) => item.product?.kind === "BOOTH")
+    .map((item) => `${item.quantity}× ${item.product!.name}`)
     .join(", ");
 
   return {
