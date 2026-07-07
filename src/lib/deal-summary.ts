@@ -26,6 +26,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
 const CONTACT_KIND_LABELS: Record<string, string> = {
   MAIN: "Main contact",
   FINANCE: "Finance contact",
+  ASSEMBLY: "Assembly contact",
 };
 
 export function formatDealDate(date: Date): string {
