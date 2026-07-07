@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { createAssembly, updateAssembly } from "@/app/actions/assemblies";
+import type { DealForAssemblyResult } from "@/app/actions/deals";
 import {
-  CLIENT_TYPE_OPTIONS,
   EVENT_TYPE_OPTIONS,
   INTERNAL_TEAM_OPTIONS,
   ISSUE_OPTIONS,
@@ -14,6 +14,7 @@ import {
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
 import { LinkedDealBoxes, type LinkedDealSummary } from "@/components/linked-deal-card";
+import { DealIdSearchField } from "@/components/deal-id-search-field";
 import { emptyAssemblyFormValues } from "@/lib/assembly-form-values";
 import { Button } from "@/components/ui";
 
@@ -99,7 +100,6 @@ function SheetDropdown({
   );
 }
 
-/** Controlled single issue-category picker; always submits as `issueCategory`. */
 function CategorySelect({
   options,
   value,
@@ -139,7 +139,6 @@ function CategorySelect({
   );
 }
 
-/** Repeating issue-category rows (max 5 -> sheet columns O–S). */
 function IssueCategories({ options, initial }: { options: string[]; initial: string[] }) {
   const [values, setValues] = useState<string[]>(initial.length > 0 ? initial : [""]);
 
@@ -190,11 +189,11 @@ function IssueCategories({ options, initial }: { options: string[]; initial: str
 export function ScheduleAssemblyForm({
   mode,
   options,
-  markets = [],
   deliveryCompanies = [],
   installCompanies = [],
   values,
   deal,
+  dealLocked = false,
   onSuccess,
 }: {
   mode: "create" | "edit";
@@ -203,8 +202,10 @@ export function ScheduleAssemblyForm({
   deliveryCompanies?: string[];
   installCompanies?: string[];
   values?: AssemblyFormValues;
-  /** When scheduling for a sales deal, its summary is shown below the form. */
+  /** Initial linked deal summary (from server or deal card). */
   deal?: LinkedDealSummary;
+  /** When true the Deal ID field is read-only. */
+  dealLocked?: boolean;
   onSuccess?: () => void;
 }) {
   const router = useRouter();
@@ -212,12 +213,37 @@ export function ScheduleAssemblyForm({
   const initial = values ?? emptyAssemblyFormValues();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const marketListId = `${formId}-markets`;
+
+  const [assemblyId, setAssemblyId] = useState(initial.dealId);
+  const [linkedDealId, setLinkedDealId] = useState(initial.linkedDealId);
+  const [assemblyAddress, setAssemblyAddress] = useState(initial.assemblyAddress);
+  const [market, setMarket] = useState(initial.market);
+  const [channelType, setChannelType] = useState(initial.channelType);
+  const [clientName, setClientName] = useState(initial.clientName);
+  const [selectedDeal, setSelectedDeal] = useState<LinkedDealSummary | null>(deal ?? null);
+
   const deliveryListId = `${formId}-delivery`;
   const installListId = `${formId}-install`;
-  const hasLegacyClientType =
-    Boolean(initial.channelType) &&
-    !CLIENT_TYPE_OPTIONS.includes(initial.channelType as (typeof CLIENT_TYPE_OPTIONS)[number]);
+  const showDealBoxes = Boolean(selectedDeal?.dealId);
+
+  const handleDealSelect = (result: DealForAssemblyResult) => {
+    if (!result.summary.dealId) {
+      setSelectedDeal(null);
+      setMarket("");
+      setChannelType("");
+      setClientName("");
+      return;
+    }
+    setSelectedDeal(result.summary);
+    setLinkedDealId(result.summary.dealId);
+    setAssemblyAddress(result.summary.assemblyAddress);
+    setMarket(result.summary.market);
+    setChannelType(result.channelType);
+    setClientName(result.summary.clientName);
+    if (mode === "create" && result.suggestedAssemblyId) {
+      setAssemblyId(result.suggestedAssemblyId);
+    }
+  };
 
   return (
     <form
@@ -236,8 +262,14 @@ export function ScheduleAssemblyForm({
         }
         if (mode === "create") {
           (document.getElementById(formId) as HTMLFormElement | null)?.reset();
+          setAssemblyId("");
+          setLinkedDealId("");
+          setAssemblyAddress("");
+          setMarket("");
+          setChannelType("");
+          setClientName("");
+          setSelectedDeal(null);
         }
-        // A rename moves the assembly's URL; follow it.
         if (mode === "edit" && result.dealId && result.dealId !== initial.dealId) {
           router.push(`/assemblies/${encodeURIComponent(result.dealId)}`);
           return;
@@ -247,223 +279,180 @@ export function ScheduleAssemblyForm({
       }}
     >
       {mode === "edit" && <input type="hidden" name="id" value={initial.id ?? ""} />}
-      <input type="hidden" name="linkedDealId" value={initial.linkedDealId} />
+      <input type="hidden" name="market" value={market} />
+      <input type="hidden" name="channelType" value={channelType} />
+      <input type="hidden" name="clientName" value={clientName} />
 
       <div
         className={
-          deal
+          showDealBoxes
             ? "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
             : undefined
         }
       >
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4">
-          <Field label="Event type">
-            <select name="eventType" defaultValue={initial.eventType} className={inputClass}>
-              {EVENT_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Internal team">
-            <select name="internalTeam" defaultValue={initial.internalTeam} className={inputClass}>
-              {INTERNAL_TEAM_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="space-y-1">
-            <Field label="Assembly ID">
-              <input name="dealId" required defaultValue={initial.dealId} className={inputClass} />
-            </Field>
-            <p className="text-xs text-slate-500">
-              Unique name used in the tracker sheet and links.
-              {mode === "edit" && " Renaming updates the sheet row and this page's URL."}
-            </p>
-          </div>
-          {deal ? (
-            // Market comes from the deal; the server re-derives it anyway.
-            <input type="hidden" name="market" value={initial.market} />
-          ) : (
-            <Field label="Market / country">
-              <input
-                name="market"
-                required
-                list={marketListId}
-                defaultValue={initial.market}
-                className={inputClass}
-              />
-              <datalist id={marketListId}>
-                {markets.map((market) => (
-                  <option key={market} value={market} />
-                ))}
-              </datalist>
-            </Field>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          {deal ? (
-            // Client type comes from the deal; the server re-derives it anyway.
-            <input type="hidden" name="channelType" value={initial.channelType} />
-          ) : (
-            <Field label="Client type">
-              <select name="channelType" defaultValue={initial.channelType} className={inputClass}>
-                <option value="">—</option>
-                {hasLegacyClientType && (
-                  <option value={initial.channelType}>{initial.channelType}</option>
-                )}
-                {CLIENT_TYPE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Column 1 — event identity */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Field label="Assembly ID">
+                <input
+                  name="dealId"
+                  required
+                  value={assemblyId}
+                  onChange={(event) => setAssemblyId(event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <p className="text-xs text-slate-500">
+                Unique name used in the tracker sheet and links.
+                {mode === "edit" && " Renaming updates the sheet row and this page's URL."}
+              </p>
+            </div>
+            <Field label="Event type">
+              <select name="eventType" defaultValue={initial.eventType} className={inputClass}>
+                {EVENT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </Field>
-          )}
-          <Field label="Delivery company">
-            <input
-              name="deliveryPartnerName"
-              list={deliveryListId}
-              defaultValue={initial.deliveryPartnerName}
-              className={inputClass}
-            />
-            <datalist id={deliveryListId}>
-              {deliveryCompanies.map((company) => (
-                <option key={company} value={company} />
-              ))}
-            </datalist>
-          </Field>
-          <Field label="Install done by">
-            <input
-              name="installPartnerName"
-              list={installListId}
-              defaultValue={initial.installPartnerName}
-              className={inputClass}
-            />
-            <datalist id={installListId}>
-              {installCompanies.map((company) => (
-                <option key={company} value={company} />
-              ))}
-            </datalist>
-          </Field>
-        </div>
-
-        <div className="space-y-4 lg:row-span-2">
-          <Field label="Assembly date">
-            <input
-              type="date"
-              name="assemblyDate"
-              required
-              defaultValue={initial.assemblyDate}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Assembly time (London)">
-            <input
-              type="time"
-              name="assemblyTime"
-              defaultValue={initial.assemblyTime}
-              className={inputClass}
-            />
-          </Field>
-          <div className="flex flex-wrap gap-6">
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+            <Field label="Internal team">
+              <select name="internalTeam" defaultValue={initial.internalTeam} className={inputClass}>
+                {INTERNAL_TEAM_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Fulfilled date">
               <input
-                type="checkbox"
-                name="closure"
-                defaultChecked={initial.closure}
-                className="rounded border-slate-300"
+                type="date"
+                name="fulfilledOn"
+                defaultValue={initial.fulfilledOn}
+                className={inputClass}
               />
-              Closure
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                name="survey"
-                defaultChecked={initial.survey}
-                className="rounded border-slate-300"
-              />
-              Survey
-            </label>
+            </Field>
           </div>
-          <Field label="Fulfilled date">
-            <input
-              type="date"
-              name="fulfilledOn"
-              defaultValue={initial.fulfilledOn}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Issue">
-            <select name="issue" defaultValue={initial.issue} className={inputClass}>
-              {ISSUE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <SheetDropdown label="Status" name="status" options={options.status} defaultValue={initial.status} />
-          <SheetDropdown label="Priority" name="priority" options={options.priority} defaultValue={initial.priority} />
-          <IssueCategories options={options.issueCategory} initial={initial.issueCategories} />
-        </div>
 
-        <fieldset className="space-y-3 rounded-lg border border-slate-200 p-3 lg:col-span-2">
-          <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-            Client details
-          </legend>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-4">
-              <Field label="Client name">
-                <input name="clientName" required defaultValue={initial.clientName} className={inputClass} />
-              </Field>
-              <Field label="Client phone number">
-                <input name="clientPhone" defaultValue={initial.clientPhone} className={inputClass} />
-              </Field>
-              <Field label="Client email">
+          {/* Column 2 — deal link + partners */}
+          <div className="space-y-4">
+            <DealIdSearchField
+              value={linkedDealId}
+              onChange={setLinkedDealId}
+              onDealSelect={handleDealSelect}
+              readOnly={dealLocked || (mode === "edit" && Boolean(initial.linkedDealId))}
+            />
+            <Field label="Delivery Company">
+              <input
+                name="deliveryPartnerName"
+                list={deliveryListId}
+                defaultValue={initial.deliveryPartnerName}
+                className={inputClass}
+              />
+              <datalist id={deliveryListId}>
+                {deliveryCompanies.map((company) => (
+                  <option key={company} value={company} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label="Install Company">
+              <input
+                name="installPartnerName"
+                list={installListId}
+                defaultValue={initial.installPartnerName}
+                className={inputClass}
+              />
+              <datalist id={installListId}>
+                {installCompanies.map((company) => (
+                  <option key={company} value={company} />
+                ))}
+              </datalist>
+            </Field>
+            <div className="flex flex-wrap gap-6 pt-1">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
-                  type="email"
-                  name="clientEmail"
-                  defaultValue={initial.clientEmail}
-                  className={inputClass}
+                  type="checkbox"
+                  name="closure"
+                  defaultChecked={initial.closure}
+                  className="rounded border-slate-300"
                 />
-              </Field>
+                Closure
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="survey"
+                  defaultChecked={initial.survey}
+                  className="rounded border-slate-300"
+                />
+                Survey
+              </label>
             </div>
-            <label className="flex flex-col space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Assembly address</span>
+          </div>
+
+          {/* Column 3 — scheduling + status */}
+          <div className="space-y-4 lg:row-span-2">
+            <Field label="Assembly date">
+              <input
+                type="date"
+                name="assemblyDate"
+                required
+                defaultValue={initial.assemblyDate}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Assembly time (London)">
+              <input
+                type="time"
+                name="assemblyTime"
+                defaultValue={initial.assemblyTime}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Issue">
+              <select name="issue" defaultValue={initial.issue} className={inputClass}>
+                {ISSUE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <SheetDropdown label="Status" name="status" options={options.status} defaultValue={initial.status} />
+            <SheetDropdown label="Priority" name="priority" options={options.priority} defaultValue={initial.priority} />
+            <IssueCategories options={options.issueCategory} initial={initial.issueCategories} />
+          </div>
+
+          {/* Below columns 1–2 */}
+          <div className="space-y-4 lg:col-span-2">
+            <Field label="Assembly Comments">
+              <textarea
+                name="comments"
+                rows={4}
+                defaultValue={initial.comments}
+                placeholder="Issue description and comments"
+                className={`${inputClass} min-h-[6rem] resize-y`}
+              />
+            </Field>
+            <Field label="Assembly address">
               <textarea
                 name="assemblyAddress"
                 rows={5}
-                defaultValue={initial.assemblyAddress}
-                className={`${inputClass} min-h-[8rem] flex-1 resize-y`}
+                value={assemblyAddress}
+                onChange={(event) => setAssemblyAddress(event.target.value)}
+                className={`${inputClass} min-h-[8rem] resize-y`}
               />
-            </label>
+            </Field>
           </div>
-        </fieldset>
-
-        <div className="lg:col-span-2">
-          <Field label="Assembly Comments">
-            <textarea
-              name="comments"
-              rows={3}
-              defaultValue={initial.comments}
-              placeholder="Issue description and comments"
-              className={`${inputClass} min-h-[5rem] resize-y`}
-            />
-          </Field>
         </div>
       </div>
-      </div>
 
-      {deal && (
+      {showDealBoxes && selectedDeal && (
         <LinkedDealBoxes
-          deal={deal}
-          dealHref={`/deals/${encodeURIComponent(deal.dealId)}`}
+          deal={selectedDeal}
+          dealHref={`/deals/${encodeURIComponent(selectedDeal.dealId)}`}
         />
       )}
 

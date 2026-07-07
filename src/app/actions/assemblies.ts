@@ -66,14 +66,9 @@ function str(formData: FormData, key: string): string {
 
 function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?: string } {
   const dealId = str(formData, "dealId");
-  const market = str(formData, "market");
-  const clientName = str(formData, "clientName");
   const linkedDealId = str(formData, "linkedDealId");
 
   if (!dealId) return { error: "Assembly ID is required." };
-  // With a linked deal the market is inferred from it after parsing.
-  if (!market && !linkedDealId) return { error: "Market is required." };
-  if (!clientName) return { error: "Client name is required." };
 
   const assemblyDate = parseIsoDateInput(str(formData, "assemblyDate"));
   if (!assemblyDate) return { error: "Assembly date is required." };
@@ -84,13 +79,13 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
       linkedDealId: linkedDealId || null,
       assemblyDate,
       assemblyTime: parseAssemblyTime(str(formData, "assemblyTime")),
-      market,
-      clientName,
+      market: str(formData, "market"),
+      clientName: str(formData, "clientName"),
       channelType: str(formData, "channelType"),
       eventType: parseEventType(formData.get("eventType")),
       internalTeam: parseInternalTeam(formData.get("internalTeam")),
-      clientEmail: str(formData, "clientEmail") || null,
-      clientPhone: str(formData, "clientPhone") || null,
+      clientEmail: null,
+      clientPhone: null,
       assemblyAddress: str(formData, "assemblyAddress") || null,
       deliveryPartnerName: str(formData, "deliveryPartnerName"),
       installPartnerName: str(formData, "installPartnerName"),
@@ -150,26 +145,11 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
     const deal = await prisma.deal.findUnique({ where: { dealId: data.linkedDealId } });
     if (!deal) return { error: `Deal "${data.linkedDealId}" not found.` };
 
-    // One active assembly per deal: a new one can only be opened once the
-    // previous one is ticked as closed.
-    const active = await prisma.assembly.findFirst({
-      where: {
-        closure: false,
-        OR: [{ linkedDealId: data.linkedDealId }, { dealId: data.linkedDealId }],
-      },
-      select: { dealId: true },
-    });
-    if (active) {
-      return {
-        error: `Deal ${data.linkedDealId} already has an active assembly (${active.dealId}). Mark it as closed (Closure) before opening another one.`,
-      };
-    }
-
     // The deal is the source of truth for these when linked.
     data.market = deal.market || data.market;
     data.channelType = clientTypeToChannel(deal.clientType) || data.channelType;
+    data.clientName = deal.clientName || data.clientName;
   }
-  if (!data.market) return { error: "Market is required." };
 
   const installPartnerId = data.installPartnerName
     ? await resolveInstallPartnerId(data.installPartnerName)
@@ -235,6 +215,14 @@ export async function updateAssembly(
 
   const assembly = await prisma.assembly.findUnique({ where: { id } });
   if (!assembly) return { error: "Assembly not found." };
+
+  if (data.linkedDealId) {
+    const deal = await prisma.deal.findUnique({ where: { dealId: data.linkedDealId } });
+    if (!deal) return { error: `Deal "${data.linkedDealId}" not found.` };
+    data.market = deal.market || data.market;
+    data.channelType = clientTypeToChannel(deal.clientType) || data.channelType;
+    data.clientName = deal.clientName || data.clientName;
+  }
 
   // The assembly ID (sheet column B, URL param) is renameable; make sure the
   // new name is free before touching the sheet.

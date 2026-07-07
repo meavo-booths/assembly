@@ -67,9 +67,6 @@ export function buildAssemblyPrefill(
   deal: DealForSummary,
   suggestedAssemblyId: string,
 ): AssemblyFormValues {
-  const mainContact =
-    deal.contacts.find((contact) => contact.kind === "MAIN") ?? deal.contacts[0];
-
   return {
     ...emptyAssemblyFormValues(),
     dealId: suggestedAssemblyId,
@@ -77,8 +74,6 @@ export function buildAssemblyPrefill(
     market: deal.market,
     clientName: deal.clientName,
     channelType: clientTypeToChannel(deal.clientType),
-    clientEmail: mainContact?.email ?? "",
-    clientPhone: mainContact?.phone ?? "",
     assemblyAddress: deal.assemblyAddress,
   };
 }

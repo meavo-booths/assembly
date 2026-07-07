@@ -6,20 +6,22 @@ import {
   type AssemblyFormValues,
 } from "@/components/schedule-assembly-form";
 import type { SheetDropdownOptions } from "@/lib/assembly-schedule";
+import type { LinkedDealSummary } from "@/components/linked-deal-card";
 import { Button, Card } from "@/components/ui";
 
 export function AssemblyDetailCard({
   values,
   options,
-  markets,
   deliveryCompanies,
   installCompanies,
+  deal,
 }: {
   values: AssemblyFormValues;
   options: SheetDropdownOptions;
-  markets: string[];
+  markets?: string[];
   deliveryCompanies: string[];
   installCompanies: string[];
+  deal?: LinkedDealSummary;
 }) {
   const router = useRouter();
 
@@ -34,10 +36,11 @@ export function AssemblyDetailCard({
       <ScheduleAssemblyForm
         mode="edit"
         options={options}
-        markets={markets}
         deliveryCompanies={deliveryCompanies}
         installCompanies={installCompanies}
         values={values}
+        deal={deal}
+        dealLocked={Boolean(values.linkedDealId)}
         onSuccess={() => router.refresh()}
       />
     </Card>

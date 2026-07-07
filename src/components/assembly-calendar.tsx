@@ -7,6 +7,7 @@ import {
   ScheduleAssemblyForm,
   type AssemblyFormValues,
 } from "@/components/schedule-assembly-form";
+import type { LinkedDealSummary } from "@/components/linked-deal-card";
 import {
   eventTypeLabel,
   internalTeamLabel,
@@ -38,6 +39,7 @@ export type CalendarEvent = {
   dateKey: string | null;
   submitted: boolean;
   values: AssemblyFormValues;
+  deal?: LinkedDealSummary;
 };
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -368,7 +370,6 @@ export function AssemblyCalendar({
           event={selected}
           editing={editing}
           options={options}
-          markets={markets}
           deliveryCompanies={deliveryCompanies}
           installCompanies={installCompanies}
           onEdit={() => setEditing(true)}
@@ -551,7 +552,6 @@ function EventModal({
   event,
   editing,
   options,
-  markets,
   deliveryCompanies,
   installCompanies,
   onEdit,
@@ -561,7 +561,6 @@ function EventModal({
   event: CalendarEvent;
   editing: boolean;
   options: SheetDropdownOptions;
-  markets: string[];
   deliveryCompanies: string[];
   installCompanies: string[];
   onEdit: () => void;
@@ -581,10 +580,11 @@ function EventModal({
           <ScheduleAssemblyForm
             mode="edit"
             options={options}
-            markets={markets}
             deliveryCompanies={deliveryCompanies}
             installCompanies={installCompanies}
             values={v}
+            deal={event.deal}
+            dealLocked={Boolean(v.linkedDealId)}
             onSuccess={onSaved}
           />
         </div>

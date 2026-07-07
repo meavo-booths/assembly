@@ -12,6 +12,7 @@ import {
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
+import { buildLinkedDealSummary } from "@/lib/deal-summary";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 
@@ -67,11 +68,32 @@ export default async function CalendarPage({
 
   const markets = marketRows.map((row) => row.market);
 
+  const linkedDealIds = [
+    ...new Set(
+      assemblies.map((assembly) => assembly.linkedDealId).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const linkedDeals =
+    linkedDealIds.length > 0
+      ? await prisma.deal.findMany({
+          where: { dealId: { in: linkedDealIds } },
+          include: {
+            contacts: { orderBy: { sortOrder: "asc" } },
+            lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
+            client: { select: { isVip: true } },
+          },
+        })
+      : [];
+  const dealById = new Map(
+    linkedDeals.map((deal) => [deal.dealId, buildLinkedDealSummary(deal)]),
+  );
+
   const events: CalendarEvent[] = assemblies.map((assembly) => ({
     id: assembly.id,
     dateKey: assembly.assemblyDate ? londonDateKey(assembly.assemblyDate) : null,
     submitted: assembly.submissions.some((s) => s.status === "SUBMITTED"),
     values: toAssemblyFormValues(assembly),
+    deal: assembly.linkedDealId ? dealById.get(assembly.linkedDealId) : undefined,
   }));
 
   return (

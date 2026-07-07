@@ -1,11 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import {
-  ScheduleAssemblyForm,
-  type AssemblyFormValues,
-} from "@/components/schedule-assembly-form";
+import { ScheduleAssemblyModal } from "@/components/schedule-assembly-modal";
+import type { AssemblyFormValues } from "@/components/schedule-assembly-form";
 import type { LinkedDealSummary } from "@/components/linked-deal-card";
 import type { SheetDropdownOptions } from "@/lib/assembly-schedule";
 import { Button, Card, VipBadge } from "@/components/ui";
@@ -17,7 +14,7 @@ export type LinkedAssemblySummary = {
   closure: boolean;
 };
 
-/** "Schedule assembly" button that opens the deal-connected create modal. */
+/** "Schedule assembly" button that opens the shared create modal. */
 export function ScheduleAssemblyButton({
   deal,
   prefill,
@@ -33,56 +30,23 @@ export function ScheduleAssemblyButton({
   deliveryCompanies: string[];
   installCompanies: string[];
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <>
-      <Button variant="primary" onClick={() => setOpen(true)}>
-        Schedule assembly
-      </Button>
-
-      {open && (
-        <div
-          className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-16 sm:p-8 sm:pt-20"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-6xl rounded-xl bg-slate-50 p-5 shadow-xl sm:p-6"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Schedule assembly for {deal.dealId}
-                </h2>
-                <p className="text-sm text-slate-600">
-                  Creates a new event, adds it to the delivery tracker sheet, and links it
-                  to this deal.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-            <ScheduleAssemblyForm
-              mode="create"
-              options={options}
-              markets={markets}
-              deliveryCompanies={deliveryCompanies}
-              installCompanies={installCompanies}
-              values={prefill}
-              deal={deal}
-              onSuccess={() => setOpen(false)}
-            />
-          </div>
-        </div>
+    <ScheduleAssemblyModal
+      trigger={(open) => (
+        <Button variant="primary" onClick={open}>
+          Schedule assembly
+        </Button>
       )}
-    </>
+      title={`Schedule assembly for ${deal.dealId}`}
+      subtitle="Creates a new event, adds it to the delivery tracker sheet, and links it to this deal."
+      options={options}
+      markets={markets}
+      deliveryCompanies={deliveryCompanies}
+      installCompanies={installCompanies}
+      values={prefill}
+      deal={deal}
+      dealLocked
+    />
   );
 }
 
@@ -103,7 +67,6 @@ export function ReadyDealCard({
   deliveryCompanies: string[];
   installCompanies: string[];
 }) {
-  const activeAssembly = linkedAssemblies.find((assembly) => !assembly.closure);
   const dealHref = `/deals/${encodeURIComponent(deal.dealId)}`;
 
   return (
@@ -152,28 +115,14 @@ export function ReadyDealCard({
             </ul>
           )}
         </div>
-        {activeAssembly ? (
-          <div className="text-right">
-            <Link
-              href={`/assemblies/${encodeURIComponent(activeAssembly.dealId)}`}
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Open active assembly
-            </Link>
-            <p className="mt-1 max-w-[16rem] text-xs text-slate-500">
-              Close {activeAssembly.dealId} (Closure tickbox) to schedule another one.
-            </p>
-          </div>
-        ) : (
-          <ScheduleAssemblyButton
-            deal={deal}
-            prefill={prefill}
-            options={options}
-            markets={markets}
-            deliveryCompanies={deliveryCompanies}
-            installCompanies={installCompanies}
-          />
-        )}
+        <ScheduleAssemblyButton
+          deal={deal}
+          prefill={prefill}
+          options={options}
+          markets={markets}
+          deliveryCompanies={deliveryCompanies}
+          installCompanies={installCompanies}
+        />
       </div>
     </Card>
   );

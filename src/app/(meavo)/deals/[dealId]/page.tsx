@@ -69,7 +69,6 @@ export default async function DealDetailPage({
   const linked = assemblies.filter(
     (assembly) => assembly.linkedDealId === dealId || assembly.dealId === dealId,
   );
-  const activeAssembly = linked.find((assembly) => !assembly.closure);
   const takenIds = new Set(assemblies.map((assembly) => assembly.dealId));
   const summary = buildLinkedDealSummary(deal);
 
@@ -92,20 +91,14 @@ export default async function DealDetailPage({
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-slate-900">Assemblies</h2>
-            {activeAssembly ? (
-              <p className="text-xs text-slate-500">
-                Close {activeAssembly.dealId} (Closure tickbox) to schedule another one.
-              </p>
-            ) : (
-              <ScheduleAssemblyButton
-                deal={summary}
-                prefill={buildAssemblyPrefill(deal, suggestAssemblyId(dealId, takenIds))}
-                options={dropdownOptions}
-                markets={marketRows.map((row) => row.market)}
-                deliveryCompanies={partnerSuggestions.deliveryCompanies}
-                installCompanies={partnerSuggestions.installCompanies}
-              />
-            )}
+            <ScheduleAssemblyButton
+              deal={summary}
+              prefill={buildAssemblyPrefill(deal, suggestAssemblyId(dealId, takenIds))}
+              options={dropdownOptions}
+              markets={marketRows.map((row) => row.market)}
+              deliveryCompanies={partnerSuggestions.deliveryCompanies}
+              installCompanies={partnerSuggestions.installCompanies}
+            />
           </div>
           {linked.length === 0 ? (
             <p className="text-sm text-slate-500">No assemblies scheduled for this deal yet.</p>

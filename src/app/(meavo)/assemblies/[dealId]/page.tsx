@@ -4,6 +4,7 @@ import { QuestionType } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { AssemblyDetailCard } from "@/components/assembly-detail-card";
 import { DeleteAssemblyButton } from "@/components/delete-assembly-button";
+import { buildLinkedDealSummary } from "@/lib/deal-summary";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
 import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
@@ -38,27 +39,26 @@ export default async function AssemblyDetailPage({
 
   const submission = assembly.submissions[0];
 
-  const [options, marketRows, partnerSuggestions] = await Promise.all([
+  const [options, partnerSuggestions] = await Promise.all([
     getAssemblyDropdownOptions(),
-    prisma.assembly.findMany({
-      where: { market: { not: "" } },
-      distinct: ["market"],
-      select: { market: true },
-      orderBy: { market: "asc" },
-    }),
     getPartnerNameSuggestions(),
   ]);
-  const markets = marketRows.map((row) => row.market);
   const formValues = toAssemblyFormValues(assembly);
 
-  // The VIP label follows the client from the sales app onto every linked assembly.
-  const linkedDeal = assembly.linkedDealId
+  const linkedDealForForm = assembly.linkedDealId
     ? await prisma.deal.findUnique({
         where: { dealId: assembly.linkedDealId },
-        select: { client: { select: { isVip: true } } },
+        include: {
+          contacts: { orderBy: { sortOrder: "asc" } },
+          lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
+          client: { select: { isVip: true } },
+        },
       })
     : null;
-  const isVip = linkedDeal?.client?.isVip ?? false;
+  const dealSummary = linkedDealForForm ? buildLinkedDealSummary(linkedDealForForm) : undefined;
+
+  // The VIP label follows the client from the sales app onto every linked assembly.
+  const isVip = linkedDealForForm?.client?.isVip ?? false;
 
   return (
     <>
@@ -82,9 +82,9 @@ export default async function AssemblyDetailPage({
       <AssemblyDetailCard
         values={formValues}
         options={options}
-        markets={markets}
         deliveryCompanies={partnerSuggestions.deliveryCompanies}
         installCompanies={partnerSuggestions.installCompanies}
+        deal={dealSummary}
       />
 
       {submission ? (
