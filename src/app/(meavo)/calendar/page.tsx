@@ -13,18 +13,22 @@ import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
 import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
 import { buildLinkedDealSummary } from "@/lib/deal-summary";
+import {
+  CALENDAR_MARKETS_COOKIE,
+  CALENDAR_MARKET_COOKIE_LEGACY,
+  parseCalendarMarkets,
+} from "@/lib/calendar-market-filter";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const MARKET_COOKIE = "calendar_market";
 const VIEW_COOKIE = "calendar_view";
 
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; week?: string; view?: string; market?: string }>;
+  searchParams: Promise<{ month?: string; week?: string; view?: string; market?: string | string[] }>;
 }) {
   await requireMeavoAccess();
 
@@ -39,10 +43,10 @@ export default async function CalendarPage({
   const month = normalizeMonth(params.month);
   const week = normalizeWeek(params.week);
 
-  const market =
-    params.market !== undefined
-      ? params.market.trim()
-      : (cookieStore.get(MARKET_COOKIE)?.value ?? "").trim();
+  const marketCookie =
+    cookieStore.get(CALENDAR_MARKETS_COOKIE)?.value ??
+    cookieStore.get(CALENDAR_MARKET_COOKIE_LEGACY)?.value;
+  const selectedMarkets = parseCalendarMarkets(params.market, marketCookie);
 
   const { start, end } = view === "week" ? gridRangeForWeek(week) : gridRangeForMonth(month);
 
@@ -50,7 +54,7 @@ export default async function CalendarPage({
     prisma.assembly.findMany({
       where: {
         assemblyDate: { gte: start, lte: end },
-        ...(market ? { market } : {}),
+        ...(selectedMarkets.length > 0 ? { market: { in: selectedMarkets } } : {}),
       },
       orderBy: [{ assemblyDate: "asc" }, { assemblyTime: "asc" }, { dealId: "asc" }],
       include: { submissions: { select: { status: true } } },
@@ -102,7 +106,7 @@ export default async function CalendarPage({
       view={view}
       month={month}
       week={week}
-      market={market}
+      selectedMarkets={selectedMarkets}
       markets={markets}
       deliveryCompanies={partnerSuggestions.deliveryCompanies}
       installCompanies={partnerSuggestions.installCompanies}

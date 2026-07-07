@@ -14,7 +14,13 @@ import {
   issueLabel,
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
+import { CalendarMarketPills } from "@/components/calendar-market-pills";
 import { buildMarketColorMap, marketStyle, type MarketStyle } from "@/lib/assembly-markets";
+import {
+  appendCalendarMarketParams,
+  CALENDAR_MARKETS_COOKIE,
+  serializeCalendarMarkets,
+} from "@/lib/calendar-market-filter";
 import {
   buildMonthGrid,
   buildWeekGrid,
@@ -44,7 +50,6 @@ export type CalendarEvent = {
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const VIEW_COOKIE = "calendar_view";
-const MARKET_COOKIE = "calendar_market";
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
@@ -64,7 +69,7 @@ export function AssemblyCalendar({
   view,
   month,
   week,
-  market,
+  selectedMarkets,
   markets,
   deliveryCompanies,
   installCompanies,
@@ -74,7 +79,7 @@ export function AssemblyCalendar({
   view: CalendarView;
   month: string;
   week: string;
-  market: string;
+  selectedMarkets: string[];
   markets: string[];
   deliveryCompanies: string[];
   installCompanies: string[];
@@ -120,7 +125,12 @@ export function AssemblyCalendar({
   const todayKey = currentLondonDateKey();
   const periodLabel = view === "week" ? weekLabel : monthLabel;
 
-  function navigate(nextView: CalendarView, nextMonth: string, nextWeek: string, nextMarket: string) {
+  function navigate(
+    nextView: CalendarView,
+    nextMonth: string,
+    nextWeek: string,
+    nextMarkets: string[],
+  ) {
     const params = new URLSearchParams();
     params.set("view", nextView);
     if (nextView === "week") {
@@ -128,45 +138,58 @@ export function AssemblyCalendar({
     } else {
       params.set("month", nextMonth);
     }
-    if (nextMarket) params.set("market", nextMarket);
+    appendCalendarMarketParams(params, nextMarkets);
     router.push(`/calendar?${params.toString()}`);
+  }
+
+  function persistMarkets(nextMarkets: string[]) {
+    if (nextMarkets.length > 0) {
+      document.cookie = `${CALENDAR_MARKETS_COOKIE}=${encodeURIComponent(serializeCalendarMarkets(nextMarkets))}; path=/; max-age=${60 * 60 * 24 * 365}`;
+    } else {
+      document.cookie = `${CALENDAR_MARKETS_COOKIE}=; path=/; max-age=0`;
+    }
   }
 
   function changeView(nextView: CalendarView) {
     document.cookie = `${VIEW_COOKIE}=${nextView}; path=/; max-age=${60 * 60 * 24 * 365}`;
-    navigate(nextView, month, week, market);
+    navigate(nextView, month, week, selectedMarkets);
   }
 
-  function changeMarket(value: string) {
-    if (value) {
-      document.cookie = `${MARKET_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 365}`;
-    } else {
-      document.cookie = `${MARKET_COOKIE}=; path=/; max-age=0`;
-    }
-    navigate(view, month, week, value);
+  function toggleMarket(value: string) {
+    const key = value.toLowerCase();
+    const nextMarkets = selectedMarkets.some((market) => market.toLowerCase() === key)
+      ? selectedMarkets.filter((market) => market.toLowerCase() !== key)
+      : [...selectedMarkets, value];
+    persistMarkets(nextMarkets);
+    navigate(view, month, week, nextMarkets);
+  }
+
+  function clearMarkets() {
+    persistMarkets([]);
+    navigate(view, month, week, []);
   }
 
   function goPrev() {
     if (view === "week") {
-      navigate(view, month, shiftWeek(week, -1), market);
+      navigate(view, month, shiftWeek(week, -1), selectedMarkets);
     } else {
-      navigate(view, shiftMonth(month, -1), week, market);
+      navigate(view, shiftMonth(month, -1), week, selectedMarkets);
     }
   }
 
   function goNext() {
     if (view === "week") {
-      navigate(view, month, shiftWeek(week, 1), market);
+      navigate(view, month, shiftWeek(week, 1), selectedMarkets);
     } else {
-      navigate(view, shiftMonth(month, 1), week, market);
+      navigate(view, shiftMonth(month, 1), week, selectedMarkets);
     }
   }
 
   function goToday() {
     if (view === "week") {
-      navigate(view, month, currentWeekKey(), market);
+      navigate(view, month, currentWeekKey(), selectedMarkets);
     } else {
-      navigate(view, currentMonthKey(), week, market);
+      navigate(view, currentMonthKey(), week, selectedMarkets);
     }
   }
 
@@ -225,23 +248,15 @@ export function AssemblyCalendar({
             Today
           </Button>
         </div>
-
-        <label className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-slate-700">Market</span>
-          <select
-            value={market}
-            onChange={(e) => changeMarket(e.target.value)}
-            className="min-w-[10rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          >
-            <option value="">All markets</option>
-            {markets.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
+
+      <CalendarMarketPills
+        markets={markets}
+        selectedMarkets={selectedMarkets}
+        colorMap={colorMap}
+        onToggle={toggleMarket}
+        onClear={clearMarkets}
+      />
 
       {view === "month" ? (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
