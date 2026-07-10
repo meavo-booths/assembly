@@ -1,0 +1,48 @@
+---
+description: Meavo security standards for meavo-assembly
+alwaysApply: true
+---
+
+# Security rules — Meavo org standard
+
+Org standard (see STANDARDS.md §4 in meavo-agent-templates). Deviations for this repo are listed at the bottom.
+
+## Auth at every layer
+
+- Verify auth independently in: middleware (pages), section layouts, Server Actions, and API routes.
+- Middleware passes `/api/*` through — never assume an API route is protected.
+- This repo has **two auth gates**:
+  - Staff: `requireMeavoAccess()` in `src/lib/meavo-auth.ts` — NextAuth session + `ToolCardAccess` check; used by every staff Server Action and `(meavo)` page.
+  - Partners: `requirePartnerSession(slug)` in `src/lib/partner-session.ts` — HMAC-signed `assembly_partner` cookie, scoped to the partner's slug; used by every partner action/page under `/{slug}`.
+- Tool card gating: check `ToolCardAccess` for `ASSEMBLY_TOOL_CARD_ID` (`seed-assembly-tool`) at login AND on every authenticated request, so revocation in gateway Admin takes effect immediately. Never look up the card by `linkedAppKey` at runtime.
+
+## Sessions & credentials
+
+- Staff: NextAuth v5 JWT sessions; Google OAuth is invite-only — user must already exist in the DB and hold Assembly tool-card access (`src/lib/google-auth.ts`).
+- Partners: access-code login — bcrypt-verified `codeHash` (`src/lib/password.ts`), HMAC-signed cookie (`PARTNER_SESSION_SECRET`, falls back to `AUTH_SECRET`), 30-day expiry.
+- Login throttling for partner codes via shared `LoginThrottle` table (`src/lib/login-throttle.ts`).
+
+## Routes & rendering
+
+- Cron routes: `CRON_SECRET` Bearer auth on every `/api/cron/*` handler.
+- `export const dynamic = "force-dynamic"` on authenticated layouts and DB-touching pages.
+- Never return stack traces to clients in production.
+- Photo / resource-file download routes authorize per request: staff tool-card access OR the owning partner's session (`src/app/api/photos/[id]/route.ts`, `src/app/api/resource-files/[fileId]/route.ts`).
+
+## Headers & content
+
+- `next.config.ts` sets: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`.
+- Uploads: Vercel Blob with `access: "private"`; limits in `src/lib/upload-limits.ts` (photos 10 MB / 40 per submission; resource PDFs 25 MB); validate MIME type; store `storageKey`; stream downloads via authenticated routes.
+
+## Secrets
+
+- No secrets in client code, comments, or committed files.
+- Document env var names in `.env.example` only — never values.
+
+## Repo-specific deviations
+
+- No credentials (email + password) login — staff sign in via Google SSO only; no bcrypt password flow for users.
+- Partner auth is a custom HMAC cookie session, not NextAuth — partners are not `User` rows.
+- `X-Frame-Options` is `DENY` (stricter than the org's `SAMEORIGIN`).
+- No `GET /api/health` endpoint.
+- Session JWT does not carry `systemRole` / `hrAccess` — authorization is tool-card access only.

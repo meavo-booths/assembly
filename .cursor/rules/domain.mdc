@@ -1,0 +1,31 @@
+---
+description: Domain layer patterns for meavo-assembly
+globs:
+  - src/lib/**
+---
+
+# Domain module rules
+
+Business logic lives in `src/lib/` — **not** in route handlers, React components, or API route files.
+
+## Patterns
+
+1. Modules are flat and feature-prefixed: `assembly-*` (filters, form values, markets, partners, schedule), `questionnaire-*` (db, i18n, locales, translate-ai, translation-status, ui), `sheets-*` (client, columns, import, export), `calendar-*`, `resource-*`.
+2. Assembly writes that touch sheet-mirrored fields must sync back to the Google Sheet (`sheets-export.ts`) and persist `sheetRowNumber` / `sheetSyncError` on the row.
+3. Notifications go through `src/lib/notifications/enqueue.ts` (`NotificationOutbox`) with an `idempotencyKey`; fire-and-forget with `.catch(console.error)`.
+4. Authorization is resolved by the caller (Server Action / page) via `requireMeavoAccess()` or `requirePartnerSession(slug)` — lib modules assume an authorized caller, except `resource-access.ts` which resolves both audiences.
+5. Reuse existing modules — search `src/lib/` for the feature prefix before adding new files.
+
+## File naming
+
+`<feature>-<concern>.ts`, kebab-case, one concern per file (e.g. `assembly-schedule.ts`, `questionnaire-translate-ai.ts`).
+
+## Sheet sync specifics
+
+- Column mapping lives only in `src/lib/sheets-columns.ts` — never hardcode column letters elsewhere.
+- Import (`sheets-import.ts`) upserts assemblies + partners keyed by `dealId` (sheet column B) and records run state in `SheetImportState`.
+- App-only fields (`eventType`, `clientEmail`, `assemblyTime`, …) are never written to the sheet.
+
+## Mutation map
+
+See `docs/domain.md` for persona permissions and status transitions.
