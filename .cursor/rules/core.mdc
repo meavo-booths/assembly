@@ -1,0 +1,57 @@
+---
+description: Core stack, layout, and guardrails for meavo-assembly
+alwaysApply: true
+---
+
+Environment: Next.js 15 App Router app at assembly.meavo.app (dev port 3001). Satellite of meavo-gateway on the shared Neon Postgres DB.
+
+## Stack
+
+- Next.js 15 App Router, TypeScript strict, React 19, `@/*` → `./src/*`
+- Tailwind CSS 3; in-house UI kit in `src/components/ui.tsx` — no external component library
+- Prisma 6 via `@meavo/db` (schema owned by the meavo-db repo, shared Neon Postgres)
+- NextAuth v5 JWT (Google SSO, invite-only) for staff; HMAC cookie sessions (`src/lib/partner-session.ts`) for partners
+- `@meavo/navigation` top nav; Google Sheets API sync; Vercel Blob uploads; Vercel AI Gateway (Gemini) translations
+
+## Do NOT
+
+- Edit the Prisma schema here — it lives in meavo-db; bump the `@meavo/db` git ref
+- Run `prisma db push` (disabled — shared DB, can drop other apps' tables)
+- Write to Sales-owned tables (`Deal`, `QuoteLineItem`, …) — read-only for deal linking
+- Send email directly — enqueue to `NotificationOutbox` via `src/lib/notifications/enqueue.ts`
+- Import `@/lib/auth` in `src/middleware.ts` (edge) — use `@/lib/auth.config`
+- Skip `requireMeavoAccess()` / `requirePartnerSession(slug)` in Server Actions
+- Add a staff route segment without adding it to `MEVAO_RESERVED_SEGMENTS` (`src/lib/constants.ts`) — `/{slug}` catch-all serves partners
+
+## Code layout
+
+| Area | Path |
+|------|------|
+| Staff pages (auth-gated) | `src/app/(meavo)/` — assemblies, calendar, deals, library (partners/questionnaire/resources) |
+| Partner portal (code login) | `src/app/[slug]/` — assembly list, questionnaire wizard, resources |
+| Server Actions | `src/app/actions/` — assemblies, partner, deals, resources, questionnaire-translations, meavo |
+| API routes | `src/app/api/` — auth, cron/import, photos, resources, resource-files |
+| Domain logic + integrations | `src/lib/` — flat feature-prefixed modules (`assembly-*`, `questionnaire-*`, `sheets-*`) |
+| Auth | `src/lib/auth.ts`, `auth.config.ts`, `meavo-auth.ts`, `partner-session.ts`, `src/middleware.ts` |
+| Tests | N/A — no test suite |
+
+## Data flow
+
+```
+Google Sheet (Deliveries tab)
+   ↕ sheets-import.ts / sheets-export.ts
+Assembly rows in shared Neon Postgres  ←link→  Deal (Sales-owned, read-only)
+   ↑ staff Server Actions (requireMeavoAccess)
+   ↑ partner Server Actions (requirePartnerSession) → submissions, answers, Blob photos
+   → NotificationOutbox (gateway sends email)
+Cron: GET /api/cron/import every 30 min (CRON_SECRET) re-imports the sheet
+```
+
+Every assembly mutation touching sheet-mirrored fields must write back via `appendAssemblyRow` / `updateAssemblyRow` / `clearAssemblyRow` and record `sheetRowNumber` / `sheetSyncError`.
+
+## Docs for agents
+
+- `AGENTS.md` — quick orientation
+- `docs/architecture.md` — stack, siblings, data flow
+- `docs/domain.md` — business rules, mutation map
+- `docs/data-model.md` — database tables

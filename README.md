@@ -8,13 +8,24 @@ Install questionnaire tool for assembly partners. CS schedules deliveries in Goo
 cp .env.example .env
 # Same DATABASE_URL as meavo-gateway
 
-npm install
-npm run db:push
+npm install     # runs prisma generate (schema from @meavo/db)
 npm run db:seed
 npm run dev
 ```
 
 Open [http://localhost:3001](http://localhost:3001).
+
+> Schema changes happen in [meavo-db](https://github.com/meavo-booths/meavo-db) — `db:push` is intentionally disabled here (shared database).
+
+## Documentation
+
+| Doc | Contents |
+|-----|----------|
+| [AGENTS.md](AGENTS.md) | Quick orientation for AI agents — task → file map, hard rules |
+| [docs/architecture.md](docs/architecture.md) | Stack, repository layout, data flow, env vars, deployment |
+| [docs/domain.md](docs/domain.md) | Business rules, personas, statuses, mutation map |
+| [docs/data-model.md](docs/data-model.md) | Assembly-owned tables in the shared schema |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | PR process, code placement, schema-change workflow |
 
 ## Environment variables
 
@@ -74,8 +85,10 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://assembly.meavo.app/api/cron
 1. New Vercel project from this repo
 2. Same `DATABASE_URL` as gateway
 3. Domain: `assembly.meavo.app`
-4. Run `npm run db:push` once against shared DB (schema includes gateway + assembly tables)
+4. Schema is applied from [meavo-db](https://github.com/meavo-booths/meavo-db) (canonical owner) — never `db push` from this repo
 5. Grant users access via gateway Admin → Assembly tool card
+
+Production deploys automatically on push to `main` via the Vercel Git integration — no manual `vercel --prod`.
 
 ## Related apps
 

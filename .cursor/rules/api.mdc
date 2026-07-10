@@ -1,0 +1,39 @@
+---
+description: API routes, Server Actions, and HTTP handlers for meavo-assembly
+globs:
+  - src/app/api/**
+  - src/app/actions/**
+---
+
+# API & Server Action rules
+
+Keep handlers **thin** — validate input, call `src/lib/` modules, map errors to action responses or HTTP status codes.
+
+## Auth
+
+- Staff Server Actions: `await requireMeavoAccess()` first (from `@/lib/meavo-auth`).
+- Partner Server Actions: `await requirePartnerSession(slug)` and scope every query by the partner's id (e.g. `installPartnerId: partner.id`).
+- Cron routes: verify `Authorization: Bearer ${CRON_SECRET}` before doing anything.
+- Download routes (`/api/photos/[id]`, `/api/resource-files/[fileId]`): authorize per request — staff tool-card access OR owning partner session.
+- Never import edge-incompatible Prisma auth in `middleware.ts` — use `@/lib/auth.config` only.
+
+## Validation
+
+- Validate `FormData` at the boundary (trim strings, check file type/size against `src/lib/upload-limits.ts`). `zod` is available for structured input.
+
+## Responses
+
+- Server Actions return `{ error?: string }` for user-facing failures; throw only for unauthorized/not-found programmer errors.
+- `revalidatePath()` after every write that affects a rendered page.
+- API routes return `NextResponse.json`; log the real error, return a generic message.
+
+## Cron routes
+
+- `GET /api/cron/import` — imports assemblies + partners from the Deliveries sheet tab every 30 min (schedule in `vercel.json`). Import logic lives in `src/lib/sheets-import.ts`, not in the route.
+
+## Do NOT
+
+- Put business rules inline in route handlers
+- Skip auth on routes exposed to the internet
+- Return stack traces to clients in production
+- Add new REST endpoints for mutations — use Server Actions; routes are for auth, cron, and file streaming only
