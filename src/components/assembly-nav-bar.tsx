@@ -1,6 +1,11 @@
 "use client";
 
-import { MeavoNavBar, type NavLink, type ToolSwitcherState } from "@meavo/navigation";
+import {
+  MeavoNavBar,
+  type NavLink,
+  type NotificationsState,
+  type ToolSwitcherState,
+} from "@meavo/navigation";
 
 const links: NavLink[] = [
   { href: "/", label: "Assemblies" },
@@ -32,6 +37,7 @@ export function AssemblyNavBar({
   userEmail,
   userImage,
   signOutAction,
+  notifications,
 }: {
   logoHref: string;
   toolSwitcher: ToolSwitcherState;
@@ -39,6 +45,7 @@ export function AssemblyNavBar({
   userEmail: string | null | undefined;
   userImage?: string | null;
   signOutAction: () => void | Promise<void>;
+  notifications?: NotificationsState;
 }) {
   return (
     <MeavoNavBar
@@ -49,6 +56,7 @@ export function AssemblyNavBar({
       userEmail={userEmail}
       userImage={userImage}
       signOutAction={signOutAction}
+      notifications={notifications}
       isActiveLink={isActiveLink}
     />
   );
