@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 
 const COOKIE_NAME = "assembly_partner";
@@ -12,18 +12,33 @@ function getSecret(): string {
   return secret;
 }
 
-function sign(partnerId: string): string {
-  return createHmac("sha256", getSecret()).update(partnerId).digest("hex");
+/**
+ * Short fingerprint of the partner's access-code hash. Baked into the signed
+ * cookie so rotating the code invalidates all existing sessions.
+ */
+function codeVersion(codeHash: string | null): string {
+  if (!codeHash) return "none";
+  return createHash("sha256").update(codeHash).digest("hex").slice(0, 12);
 }
 
-export function createPartnerSessionValue(partnerId: string): string {
-  return `${partnerId}.${sign(partnerId)}`;
+function sign(payload: string): string {
+  return createHmac("sha256", getSecret()).update(payload).digest("hex");
 }
 
-function parsePartnerSessionValue(value: string): string | null {
-  const [partnerId, signature] = value.split(".");
-  if (!partnerId || !signature) return null;
-  const expected = sign(partnerId);
+export function createPartnerSessionValue(partner: {
+  id: string;
+  codeHash: string | null;
+}): string {
+  const payload = `${partner.id}.${codeVersion(partner.codeHash)}`;
+  return `${payload}.${sign(payload)}`;
+}
+
+function parsePartnerSessionValue(
+  value: string,
+): { partnerId: string; codeVersion: string } | null {
+  const [partnerId, version, signature] = value.split(".");
+  if (!partnerId || !version || !signature) return null;
+  const expected = sign(`${partnerId}.${version}`);
   try {
     const a = Buffer.from(signature);
     const b = Buffer.from(expected);
@@ -31,12 +46,15 @@ function parsePartnerSessionValue(value: string): string | null {
   } catch {
     return null;
   }
-  return partnerId;
+  return { partnerId, codeVersion: version };
 }
 
-export async function setPartnerSession(partnerId: string): Promise<void> {
+export async function setPartnerSession(partner: {
+  id: string;
+  codeHash: string | null;
+}): Promise<void> {
   const jar = await cookies();
-  jar.set(COOKIE_NAME, createPartnerSessionValue(partnerId), {
+  jar.set(COOKIE_NAME, createPartnerSessionValue(partner), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -54,11 +72,15 @@ export async function getPartnerFromSession() {
   const jar = await cookies();
   const raw = jar.get(COOKIE_NAME)?.value;
   if (!raw) return null;
-  const partnerId = parsePartnerSessionValue(raw);
-  if (!partnerId) return null;
-  return prisma.assemblyPartner.findFirst({
-    where: { id: partnerId, isActive: true },
+  const parsed = parsePartnerSessionValue(raw);
+  if (!parsed) return null;
+  const partner = await prisma.assemblyPartner.findFirst({
+    where: { id: parsed.partnerId, isActive: true },
   });
+  if (!partner) return null;
+  // Sessions issued before an access-code rotation are no longer valid.
+  if (codeVersion(partner.codeHash) !== parsed.codeVersion) return null;
+  return partner;
 }
 
 export async function requirePartnerSession(expectedSlug: string) {

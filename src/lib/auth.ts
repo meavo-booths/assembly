@@ -1,3 +1,4 @@
+import { cache } from "react";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { ASSEMBLY_TOOL_CARD_ID } from "@/lib/constants";
@@ -12,7 +13,7 @@ const googleProvider = isGoogleAuthEnabled()
     })
   : null;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const { handlers, auth: uncachedAuth, signIn, signOut } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt" },
   providers: [...(googleProvider ? [googleProvider] : [])],
@@ -64,3 +65,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+export { handlers, signIn, signOut };
+
+/**
+ * Request-deduplicated session lookup: layouts, pages, and actions in the same
+ * request all share one JWT decode + user query instead of repeating it.
+ */
+export const auth = cache(() => uncachedAuth());

@@ -2,12 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-import {
-  ScheduleAssemblyForm,
-  type AssemblyFormValues,
-} from "@/components/schedule-assembly-form";
-import type { LinkedDealSummary } from "@/components/linked-deal-card";
+import type { AssemblyFormValues } from "@/lib/assembly-form-values";
+import type { LinkedDealSummary } from "@/lib/deal-summary";
 import {
   eventTypeLabel,
   internalTeamLabel,
@@ -47,6 +45,12 @@ export type CalendarEvent = {
   values: AssemblyFormValues;
   deal?: LinkedDealSummary;
 };
+
+// Code-split: the edit form only loads when an event is opened for editing.
+const ScheduleAssemblyForm = dynamic(
+  () => import("@/components/schedule-assembly-form").then((m) => m.ScheduleAssemblyForm),
+  { ssr: false, loading: () => <p className="text-sm text-slate-500">Loading form…</p> },
+);
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const VIEW_COOKIE = "calendar_view";
@@ -119,7 +123,7 @@ export function AssemblyCalendar({
     return map;
   }, [events]);
 
-  const [year, monthNumber] = month.split("-").map(Number);
+  const [, monthNumber] = month.split("-").map(Number);
   const monthLabel = formatMonthLabel(month);
   const weekLabel = formatWeekLabel(week);
   const todayKey = currentLondonDateKey();
@@ -611,8 +615,6 @@ function EventModal({
             <Detail label="Date" value={formatDisplayDate(v.assemblyDate, v.assemblyTime)} />
             <Detail label="Market" value={v.market} />
             <Detail label="Client type" value={v.channelType} />
-            <Detail label="Client email" value={v.clientEmail} />
-            <Detail label="Client phone" value={v.clientPhone} />
             <Detail label="Assembly address" value={v.assemblyAddress} />
             <Detail label="Delivery company" value={v.deliveryPartnerName} />
             <Detail label="Install done by" value={v.installPartnerName} />

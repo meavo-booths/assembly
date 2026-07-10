@@ -4,7 +4,8 @@ import {
   setPartnerAccessCode,
   updatePartnerEmail,
   updatePartnerSlug,
-} from "@/app/actions/meavo";
+} from "@/app/actions/partners";
+import { ActionForm } from "@/components/action-form";
 import { Button, Card, Input } from "@/components/ui";
 
 export type PartnerCardData = {
@@ -70,7 +71,7 @@ export function PartnerCard({
         </summary>
 
         <div className="space-y-3 border-t border-slate-100 px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
-          <form action={updatePartnerEmail} className="grid gap-3 sm:grid-cols-2">
+          <ActionForm action={updatePartnerEmail} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="partnerId" value={partner.id} />
             <Input
               label="Partner email"
@@ -84,9 +85,9 @@ export function PartnerCard({
                 Update email
               </Button>
             </div>
-          </form>
+          </ActionForm>
 
-          <form action={setPartnerAccessCode} className="grid gap-3 sm:grid-cols-2">
+          <ActionForm action={setPartnerAccessCode} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="partnerId" value={partner.id} />
             <Input
               label="New access code"
@@ -99,9 +100,9 @@ export function PartnerCard({
                 Update code
               </Button>
             </div>
-          </form>
+          </ActionForm>
 
-          <form action={updatePartnerSlug} className="grid gap-3 sm:grid-cols-2">
+          <ActionForm action={updatePartnerSlug} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="partnerId" value={partner.id} />
             <Input label="URL slug" name="slug" defaultValue={partner.slug} required />
             <div className="flex items-end">
@@ -109,7 +110,7 @@ export function PartnerCard({
                 Update slug
               </Button>
             </div>
-          </form>
+          </ActionForm>
         </div>
       </details>
     </Card>

@@ -2,11 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
-import type { LinkedDealSummary } from "@/components/linked-deal-card";
-import type { Prisma } from "@prisma/client";
+import { assembliesForDealWhere, dealSummaryInclude } from "@/lib/deal-queries";
 import {
   buildLinkedDealSummary,
   suggestAssemblyId,
+  type LinkedDealSummary,
 } from "@/lib/deal-summary";
 
 export type DealSearchHit = {
@@ -14,12 +14,6 @@ export type DealSearchHit = {
   clientName: string;
   quoteNumber: string;
 };
-
-const dealInclude = {
-  contacts: { orderBy: { sortOrder: "asc" as const } },
-  lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" as const } },
-  client: { select: { isVip: true } },
-} satisfies Prisma.DealInclude;
 
 /** Search deals by Deal ID or client name for the assembly create form. */
 export async function searchDealsForAssemblyAction(query: string): Promise<DealSearchHit[]> {
@@ -64,18 +58,12 @@ export async function getDealForAssemblyAction(
 
   const deal = await prisma.deal.findUnique({
     where: { dealId },
-    include: dealInclude,
+    include: dealSummaryInclude,
   });
   if (!deal || !deal.dealId) return { error: `Deal "${dealId}" not found.` };
 
   const assemblies = await prisma.assembly.findMany({
-    where: {
-      OR: [
-        { linkedDealId: dealId },
-        { dealId },
-        { dealId: { startsWith: `${dealId}-ASS` } },
-      ],
-    },
+    where: assembliesForDealWhere(dealId),
     select: { dealId: true },
   });
   const takenIds = new Set(assemblies.map((assembly) => assembly.dealId));

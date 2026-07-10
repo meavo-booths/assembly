@@ -4,8 +4,8 @@ import { SubmissionStatus } from "@prisma/client";
 import { AssemblyListCard } from "@/components/assembly-list-card";
 import { ScheduleAssemblyCard } from "@/components/schedule-assembly-card";
 import { AssemblyFilters } from "@/components/assembly-filters";
-import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
-import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
+import { loadScheduleFormContext } from "@/lib/schedule-form-context";
+import { getAssemblyMarkets } from "@/lib/assembly-form-suggestions";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import {
   buildAssemblyWhere,
@@ -46,8 +46,7 @@ export default async function AssembliesPage({
     Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1,
   );
 
-  const [assemblies, importState, marketRows, partners, dropdownOptions, partnerSuggestions] =
-    await Promise.all([
+  const [assemblies, importState, markets, partners, formContext] = await Promise.all([
     prisma.assembly.findMany({
       where,
       orderBy: [{ assemblyDate: "asc" }, { dealId: "asc" }],
@@ -60,22 +59,14 @@ export default async function AssembliesPage({
       take: PAGE_SIZE,
     }),
     prisma.sheetImportState.findUnique({ where: { id: "default" } }),
-    prisma.assembly.findMany({
-      where: { market: { not: "" } },
-      distinct: ["market"],
-      select: { market: true },
-      orderBy: { market: "asc" },
-    }),
+    getAssemblyMarkets(),
     prisma.assemblyPartner.findMany({
       where: { isInternal: false },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
-    getAssemblyDropdownOptions(),
-    getPartnerNameSuggestions(),
+    loadScheduleFormContext(),
   ]);
-
-  const markets = marketRows.map((row) => row.market);
   const dateLabel = formatFilterDateLabel(filters);
 
   const pageHref = (target: number) => {
@@ -100,10 +91,10 @@ export default async function AssembliesPage({
         </Suspense>
 
         <ScheduleAssemblyCard
-          options={dropdownOptions}
+          options={formContext.options}
           markets={markets}
-          deliveryCompanies={partnerSuggestions.deliveryCompanies}
-          installCompanies={partnerSuggestions.installCompanies}
+          deliveryCompanies={formContext.deliveryCompanies}
+          installCompanies={formContext.installCompanies}
         />
       </div>
 

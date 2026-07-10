@@ -4,33 +4,9 @@
  */
 import Link from "next/link";
 import { VipBadge } from "@/components/ui";
+import type { LinkedDealContact, LinkedDealSummary } from "@/lib/deal-summary";
 
-export type LinkedDealContact = {
-  kind: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-};
-
-export type LinkedDealSummary = {
-  dealId: string;
-  quoteNumber: string;
-  clientName: string;
-  /** VIP flag of the linked client — surfaces the sales app's VIP label here. */
-  isVip: boolean;
-  dealDate: string;
-  salesRep: string;
-  market: string;
-  clientType: string;
-  paymentStatus: string;
-  vatNumber: string;
-  registeredAddress: string;
-  assemblyAddress: string;
-  notes: string;
-  boothSummary: string;
-  contacts: LinkedDealContact[];
-};
+export type { LinkedDealContact, LinkedDealSummary };
 
 const boxClass = "rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
 

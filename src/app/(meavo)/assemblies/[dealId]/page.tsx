@@ -6,8 +6,8 @@ import { AssemblyDetailCard } from "@/components/assembly-detail-card";
 import { DeleteAssemblyButton } from "@/components/delete-assembly-button";
 import { buildLinkedDealSummary } from "@/lib/deal-summary";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
-import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
-import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
+import { loadScheduleFormContext } from "@/lib/schedule-form-context";
+import { dealSummaryInclude } from "@/lib/deal-queries";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader, VipBadge } from "@/components/ui";
 
@@ -39,22 +39,16 @@ export default async function AssemblyDetailPage({
 
   const submission = assembly.submissions[0];
 
-  const [options, partnerSuggestions] = await Promise.all([
-    getAssemblyDropdownOptions(),
-    getPartnerNameSuggestions(),
+  const [formContext, linkedDealForForm] = await Promise.all([
+    loadScheduleFormContext(),
+    assembly.linkedDealId
+      ? prisma.deal.findUnique({
+          where: { dealId: assembly.linkedDealId },
+          include: dealSummaryInclude,
+        })
+      : null,
   ]);
   const formValues = toAssemblyFormValues(assembly);
-
-  const linkedDealForForm = assembly.linkedDealId
-    ? await prisma.deal.findUnique({
-        where: { dealId: assembly.linkedDealId },
-        include: {
-          contacts: { orderBy: { sortOrder: "asc" } },
-          lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
-          client: { select: { isVip: true } },
-        },
-      })
-    : null;
   const dealSummary = linkedDealForForm ? buildLinkedDealSummary(linkedDealForForm) : undefined;
 
   // The VIP label follows the client from the sales app onto every linked assembly.
@@ -81,9 +75,9 @@ export default async function AssemblyDetailPage({
 
       <AssemblyDetailCard
         values={formValues}
-        options={options}
-        deliveryCompanies={partnerSuggestions.deliveryCompanies}
-        installCompanies={partnerSuggestions.installCompanies}
+        options={formContext.options}
+        deliveryCompanies={formContext.deliveryCompanies}
+        installCompanies={formContext.installCompanies}
         deal={dealSummary}
       />
 
@@ -125,6 +119,9 @@ export default async function AssemblyDetailPage({
                   <img
                     src={`/api/photos/${photo.id}`}
                     alt={photo.fileName}
+                    loading="lazy"
+                    width={300}
+                    height={300}
                     className="aspect-square rounded-lg object-cover"
                   />
                 </a>

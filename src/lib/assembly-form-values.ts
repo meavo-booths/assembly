@@ -1,10 +1,40 @@
 import type { Assembly } from "@prisma/client";
-import type { AssemblyFormValues } from "@/components/schedule-assembly-form";
+import type {
+  EventTypeValue,
+  InternalTeamValue,
+  IssueValue,
+} from "@/lib/assembly-schedule";
 
 /**
- * Blank form values. Lives here (not in the "use client" form module) so
- * server components can call it when building prefills.
+ * Editable form value shape shared by the schedule/edit forms and the pages
+ * that build prefills. Lives here (not in the "use client" form module) so
+ * server code never imports from components.
  */
+export type AssemblyFormValues = {
+  id?: string;
+  dealId: string;
+  linkedDealId: string;
+  assemblyDate: string;
+  assemblyTime: string;
+  market: string;
+  clientName: string;
+  channelType: string;
+  eventType: EventTypeValue;
+  internalTeam: InternalTeamValue;
+  assemblyAddress: string;
+  deliveryPartnerName: string;
+  installPartnerName: string;
+  closure: boolean;
+  survey: boolean;
+  fulfilledOn: string;
+  issue: IssueValue;
+  status: string;
+  priority: string;
+  issueCategories: string[];
+  comments: string;
+};
+
+/** Blank form values for the create form and deal prefills. */
 export function emptyAssemblyFormValues(): AssemblyFormValues {
   return {
     dealId: "",
@@ -16,8 +46,6 @@ export function emptyAssemblyFormValues(): AssemblyFormValues {
     channelType: "",
     eventType: "ASSEMBLY",
     internalTeam: "NO",
-    clientEmail: "",
-    clientPhone: "",
     assemblyAddress: "",
     deliveryPartnerName: "",
     installPartnerName: "",
@@ -55,8 +83,6 @@ export function toAssemblyFormValues(a: Assembly): AssemblyFormValues {
     channelType: a.channelType,
     eventType: a.eventType,
     internalTeam: a.internalTeam,
-    clientEmail: a.clientEmail ?? "",
-    clientPhone: a.clientPhone ?? "",
     assemblyAddress: a.assemblyAddress ?? "",
     deliveryPartnerName: a.deliveryPartnerName,
     installPartnerName: a.installPartnerName,

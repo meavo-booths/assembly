@@ -18,20 +18,20 @@ export async function isLoginThrottled(key: string): Promise<boolean> {
 /** Records a failed attempt, starting a fresh window if the old one expired. */
 export async function recordLoginFailure(key: string): Promise<void> {
   const now = new Date();
-  const row = await prisma.loginThrottle.findUnique({ where: { key } });
+  const windowCutoff = new Date(now.getTime() - WINDOW_MS);
 
-  if (!row || now.getTime() - row.windowStart.getTime() > WINDOW_MS) {
-    await prisma.loginThrottle.upsert({
-      where: { key },
-      create: { key, attempts: 1, windowStart: now },
-      update: { attempts: 1, windowStart: now },
-    });
-    return;
-  }
-
-  await prisma.loginThrottle.update({
-    where: { key },
+  // Atomic increment for rows inside the current window; avoids the
+  // read-modify-write race that could under-count concurrent failures.
+  const updated = await prisma.loginThrottle.updateMany({
+    where: { key, windowStart: { gt: windowCutoff } },
     data: { attempts: { increment: 1 } },
+  });
+  if (updated.count > 0) return;
+
+  await prisma.loginThrottle.upsert({
+    where: { key },
+    create: { key, attempts: 1, windowStart: now },
+    update: { attempts: 1, windowStart: now },
   });
 }
 

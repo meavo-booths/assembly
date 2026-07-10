@@ -4,10 +4,39 @@
  * by the Ready deals page and the deal detail page.
  */
 import type { Prisma } from "@prisma/client";
-import type { AssemblyFormValues } from "@/components/schedule-assembly-form";
-import type { LinkedDealSummary } from "@/components/linked-deal-card";
-import { emptyAssemblyFormValues } from "@/lib/assembly-form-values";
+import {
+  emptyAssemblyFormValues,
+  type AssemblyFormValues,
+} from "@/lib/assembly-form-values";
 import { clientTypeToChannel } from "@/lib/assembly-schedule";
+
+export type LinkedDealContact = {
+  kind: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+};
+
+/** Read-only summary of the sales deal shown next to assemblies. */
+export type LinkedDealSummary = {
+  dealId: string;
+  quoteNumber: string;
+  clientName: string;
+  /** VIP flag of the linked client — surfaces the sales app's VIP label here. */
+  isVip: boolean;
+  dealDate: string;
+  salesRep: string;
+  market: string;
+  clientType: string;
+  paymentStatus: string;
+  vatNumber: string;
+  registeredAddress: string;
+  assemblyAddress: string;
+  notes: string;
+  boothSummary: string;
+  contacts: LinkedDealContact[];
+};
 
 export type DealForSummary = Prisma.DealGetPayload<{
   include: {

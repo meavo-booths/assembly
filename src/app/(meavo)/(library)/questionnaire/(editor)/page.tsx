@@ -1,5 +1,4 @@
 import { QuestionType } from "@prisma/client";
-import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 import { prisma } from "@/lib/prisma";
 import { questionTypeLabel } from "@/lib/questionnaire";
 import {
@@ -11,7 +10,8 @@ import {
   moveSection,
   updateQuestionText,
   updateSectionTitle,
-} from "@/app/actions/meavo";
+} from "@/app/actions/questionnaire";
+import { ActionForm } from "@/components/action-form";
 import { Button, Card, Input } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -27,23 +27,7 @@ export default async function QuestionnaireBuilderPage() {
     },
   });
 
-  if (questionnaire) {
-    await migrateOrphanQuestions(questionnaire.id);
-  }
-
-  const refreshed = questionnaire
-    ? await prisma.questionnaire.findFirst({
-        where: { id: questionnaire.id },
-        include: {
-          sections: {
-            orderBy: { sortOrder: "asc" },
-            include: { questions: { orderBy: { sortOrder: "asc" } } },
-          },
-        },
-      })
-    : null;
-
-  const sections = refreshed?.sections ?? [];
+  const sections = questionnaire?.sections ?? [];
 
   return (
     <div className="space-y-8">
@@ -52,14 +36,14 @@ export default async function QuestionnaireBuilderPage() {
         <p className="mt-1 text-sm text-slate-500">
           Group related checkbox, text, or yes/no questions into a section.
         </p>
-        <form action={addSection} className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <ActionForm action={addSection} className="mt-4 flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
             <Input label="Section title" name="title" required placeholder="Electrics / Cabling" />
           </div>
           <div className="flex items-end">
             <Button type="submit">Add section</Button>
           </div>
-        </form>
+        </ActionForm>
       </Card>
 
       <div className="grid gap-4">
@@ -72,7 +56,7 @@ export default async function QuestionnaireBuilderPage() {
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-slate-500">Section {sectionIndex + 1}</p>
-                  <form action={updateSectionTitle} className="mt-1 flex flex-wrap items-end gap-2">
+                  <ActionForm action={updateSectionTitle} className="mt-1 flex flex-wrap items-end gap-2">
                     <input type="hidden" name="id" value={section.id} />
                     <input
                       name="title"
@@ -83,17 +67,17 @@ export default async function QuestionnaireBuilderPage() {
                     <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
                       Save title
                     </Button>
-                  </form>
+                  </ActionForm>
                 </div>
                 <div className="flex gap-1">
-                  <form action={moveSection}>
+                  <ActionForm action={moveSection}>
                     <input type="hidden" name="id" value={section.id} />
                     <input type="hidden" name="direction" value="up" />
                     <Button type="submit" variant="secondary" className="px-2 py-1.5" disabled={sectionIndex === 0}>
                       ↑
                     </Button>
-                  </form>
-                  <form action={moveSection}>
+                  </ActionForm>
+                  <ActionForm action={moveSection}>
                     <input type="hidden" name="id" value={section.id} />
                     <input type="hidden" name="direction" value="down" />
                     <Button
@@ -104,13 +88,13 @@ export default async function QuestionnaireBuilderPage() {
                     >
                       ↓
                     </Button>
-                  </form>
-                  <form action={deleteSection}>
+                  </ActionForm>
+                  <ActionForm action={deleteSection}>
                     <input type="hidden" name="id" value={section.id} />
                     <Button type="submit" variant="danger">
                       Remove section
                     </Button>
-                  </form>
+                  </ActionForm>
                 </div>
               </div>
 
@@ -136,7 +120,7 @@ export default async function QuestionnaireBuilderPage() {
                           </span>
                         )}
                       </div>
-                      <form action={updateQuestionText} className="mt-2 flex flex-wrap items-end gap-2">
+                      <ActionForm action={updateQuestionText} className="mt-2 flex flex-wrap items-end gap-2">
                         <input type="hidden" name="id" value={q.id} />
                         <textarea
                           name="text"
@@ -148,10 +132,10 @@ export default async function QuestionnaireBuilderPage() {
                         <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
                           Save
                         </Button>
-                      </form>
+                      </ActionForm>
                     </div>
                     <div className="flex gap-1">
-                      <form action={moveQuestion}>
+                      <ActionForm action={moveQuestion}>
                         <input type="hidden" name="id" value={q.id} />
                         <input type="hidden" name="direction" value="up" />
                         <Button
@@ -162,8 +146,8 @@ export default async function QuestionnaireBuilderPage() {
                         >
                           ↑
                         </Button>
-                      </form>
-                      <form action={moveQuestion}>
+                      </ActionForm>
+                      <ActionForm action={moveQuestion}>
                         <input type="hidden" name="id" value={q.id} />
                         <input type="hidden" name="direction" value="down" />
                         <Button
@@ -174,13 +158,13 @@ export default async function QuestionnaireBuilderPage() {
                         >
                           ↓
                         </Button>
-                      </form>
-                      <form action={deleteQuestion}>
+                      </ActionForm>
+                      <ActionForm action={deleteQuestion}>
                         <input type="hidden" name="id" value={q.id} />
                         <Button type="submit" variant="danger">
                           Remove
                         </Button>
-                      </form>
+                      </ActionForm>
                     </div>
                   </li>
                 ))}
@@ -189,7 +173,7 @@ export default async function QuestionnaireBuilderPage() {
                 )}
               </ul>
 
-              <form action={addQuestion} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+              <ActionForm action={addQuestion} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
                 <input type="hidden" name="sectionId" value={section.id} />
                 <Input label="Question" name="text" required placeholder="Is the booth plugged in?" />
                 <label className="block space-y-1 text-sm">
@@ -226,7 +210,7 @@ export default async function QuestionnaireBuilderPage() {
                   End questionnaire if partner answers No (yes/no questions only)
                 </label>
                 <Button type="submit">Add question to section</Button>
-              </form>
+              </ActionForm>
             </Card>
           );
         })}

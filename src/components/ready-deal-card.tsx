@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { ScheduleAssemblyModal } from "@/components/schedule-assembly-modal";
-import type { AssemblyFormValues } from "@/components/schedule-assembly-form";
-import type { LinkedDealSummary } from "@/components/linked-deal-card";
+import type { AssemblyFormValues } from "@/lib/assembly-form-values";
+import type { LinkedDealSummary } from "@/lib/deal-summary";
 import type { SheetDropdownOptions } from "@/lib/assembly-schedule";
 import { Button, Card, VipBadge } from "@/components/ui";
 

@@ -8,44 +8,21 @@ import {
   EVENT_TYPE_OPTIONS,
   INTERNAL_TEAM_OPTIONS,
   ISSUE_OPTIONS,
-  type EventTypeValue,
-  type InternalTeamValue,
-  type IssueValue,
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
-import { LinkedDealBoxes, type LinkedDealSummary } from "@/components/linked-deal-card";
+import { LinkedDealBoxes } from "@/components/linked-deal-card";
+import type { LinkedDealSummary } from "@/lib/deal-summary";
 import { DealIdSearchField } from "@/components/deal-id-search-field";
-import { emptyAssemblyFormValues } from "@/lib/assembly-form-values";
+import {
+  emptyAssemblyFormValues,
+  type AssemblyFormValues,
+} from "@/lib/assembly-form-values";
 import { Button } from "@/components/ui";
+
+export type { AssemblyFormValues };
 
 /** Maximum number of issue categories (sheet columns O–S). */
 const MAX_ISSUE_CATEGORIES = 5;
-
-export type AssemblyFormValues = {
-  id?: string;
-  dealId: string;
-  linkedDealId: string;
-  assemblyDate: string;
-  assemblyTime: string;
-  market: string;
-  clientName: string;
-  channelType: string;
-  eventType: EventTypeValue;
-  internalTeam: InternalTeamValue;
-  clientEmail: string;
-  clientPhone: string;
-  assemblyAddress: string;
-  deliveryPartnerName: string;
-  installPartnerName: string;
-  closure: boolean;
-  survey: boolean;
-  fulfilledOn: string;
-  issue: IssueValue;
-  status: string;
-  priority: string;
-  issueCategories: string[];
-  comments: string;
-};
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";

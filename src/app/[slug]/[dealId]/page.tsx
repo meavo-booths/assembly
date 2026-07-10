@@ -6,6 +6,7 @@ import { requirePartnerSession } from "@/lib/partner-session";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
 import { QUESTIONNAIRE_LOCALE_COOKIE } from "@/lib/questionnaire-locales";
+import { getPublishedQuestionnaireSections } from "@/lib/questionnaire-db";
 import { loadLocalizedQuestionnaireSections } from "@/lib/questionnaire-i18n";
 import { QuestionnaireWizard } from "@/components/questionnaire-wizard";
 
@@ -27,43 +28,36 @@ export default async function PartnerAssemblyPage({
   const partner = await requirePartnerSession(slug);
   if (!partner) notFound();
 
-  const assembly = await prisma.assembly.findFirst({
-    where: { dealId, installPartnerId: partner.id },
-  });
+  const [assembly, sections, cookieStore, headerStore] = await Promise.all([
+    prisma.assembly.findFirst({
+      where: { dealId, installPartnerId: partner.id },
+    }),
+    getPublishedQuestionnaireSections(),
+    cookies(),
+    headers(),
+  ]);
   if (!assembly) notFound();
 
-  const questionnaire = await prisma.questionnaire.findFirst({
-    where: { isPublished: true },
-    include: {
-      sections: {
-        orderBy: { sortOrder: "asc" },
-        include: { questions: { orderBy: { sortOrder: "asc" } } },
+  const [localized, submission] = await Promise.all([
+    sections
+      ? loadLocalizedQuestionnaireSections(sections, {
+          langParam: lang,
+          cookieLang: cookieStore.get(QUESTIONNAIRE_LOCALE_COOKIE)?.value,
+          acceptLanguage: headerStore.get("accept-language"),
+        })
+      : {
+          sections: [],
+          locale: QuestionnaireLocale.EN,
+          availableLocales: [QuestionnaireLocale.EN],
+        },
+    prisma.questionnaireSubmission.findUnique({
+      where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
+      include: {
+        answers: true,
+        photos: true,
       },
-    },
-  });
-
-  const cookieStore = await cookies();
-  const headerStore = await headers();
-
-  const localized = questionnaire
-    ? await loadLocalizedQuestionnaireSections(questionnaire.sections, {
-        langParam: lang,
-        cookieLang: cookieStore.get(QUESTIONNAIRE_LOCALE_COOKIE)?.value,
-        acceptLanguage: headerStore.get("accept-language"),
-      })
-    : {
-        sections: [],
-        locale: QuestionnaireLocale.EN,
-        availableLocales: [QuestionnaireLocale.EN],
-      };
-
-  const submission = await prisma.questionnaireSubmission.findUnique({
-    where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
-    include: {
-      answers: true,
-      photos: true,
-    },
-  });
+    }),
+  ]);
 
   const initialAnswers = Object.fromEntries(
     (submission?.answers ?? []).map((a) => [

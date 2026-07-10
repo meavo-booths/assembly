@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { QuestionnaireLocale } from "@prisma/client";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
-import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 import { loadLocalizedQuestionnaireSections } from "@/lib/questionnaire-i18n";
 import { prisma } from "@/lib/prisma";
 import { QuestionnairePreview } from "@/components/questionnaire-preview";
@@ -27,24 +26,8 @@ export default async function QuestionnairePreviewPage({
     },
   });
 
-  if (questionnaire) {
-    await migrateOrphanQuestions(questionnaire.id);
-  }
-
-  const refreshed = questionnaire
-    ? await prisma.questionnaire.findFirst({
-        where: { id: questionnaire.id },
-        include: {
-          sections: {
-            orderBy: { sortOrder: "asc" },
-            include: { questions: { orderBy: { sortOrder: "asc" } } },
-          },
-        },
-      })
-    : null;
-
-  const localized = refreshed
-    ? await loadLocalizedQuestionnaireSections(refreshed.sections, {
+  const localized = questionnaire
+    ? await loadLocalizedQuestionnaireSections(questionnaire.sections, {
         langParam: lang,
         context: "preview",
         previewPartnerView: partnerView,
@@ -64,7 +47,7 @@ export default async function QuestionnairePreviewPage({
         availableLocales={localized.availableLocales}
         approvedLocales={localized.approvedLocales}
         partnerView={partnerView}
-        isPublished={refreshed?.isPublished ?? false}
+        isPublished={questionnaire?.isPublished ?? false}
       />
     </Suspense>
   );

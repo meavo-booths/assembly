@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
-import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
-import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
+import { loadScheduleFormContext } from "@/lib/schedule-form-context";
+import { getAssemblyMarkets } from "@/lib/assembly-form-suggestions";
+import { assembliesForDealWhere, dealSummaryInclude } from "@/lib/deal-queries";
 import { eventTypeLabel } from "@/lib/assembly-schedule";
 import {
   buildAssemblyPrefill,
@@ -28,23 +29,13 @@ export default async function DealDetailPage({
 
   const deal = await prisma.deal.findUnique({
     where: { dealId },
-    include: {
-      contacts: { orderBy: { sortOrder: "asc" } },
-      lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
-      client: { select: { isVip: true } },
-    },
+    include: dealSummaryInclude,
   });
   if (!deal || !deal.dealId) notFound();
 
-  const [assemblies, dropdownOptions, partnerSuggestions, marketRows] = await Promise.all([
+  const [assemblies, formContext, markets] = await Promise.all([
     prisma.assembly.findMany({
-      where: {
-        OR: [
-          { linkedDealId: dealId },
-          { dealId },
-          { dealId: { startsWith: `${dealId}-ASS` } },
-        ],
-      },
+      where: assembliesForDealWhere(dealId),
       select: {
         dealId: true,
         linkedDealId: true,
@@ -56,14 +47,8 @@ export default async function DealDetailPage({
       },
       orderBy: { createdAt: "asc" },
     }),
-    getAssemblyDropdownOptions(),
-    getPartnerNameSuggestions(),
-    prisma.assembly.findMany({
-      where: { market: { not: "" } },
-      distinct: ["market"],
-      select: { market: true },
-      orderBy: { market: "asc" },
-    }),
+    loadScheduleFormContext(),
+    getAssemblyMarkets(),
   ]);
 
   const linked = assemblies.filter(
@@ -94,10 +79,10 @@ export default async function DealDetailPage({
             <ScheduleAssemblyButton
               deal={summary}
               prefill={buildAssemblyPrefill(deal, suggestAssemblyId(dealId, takenIds))}
-              options={dropdownOptions}
-              markets={marketRows.map((row) => row.market)}
-              deliveryCompanies={partnerSuggestions.deliveryCompanies}
-              installCompanies={partnerSuggestions.installCompanies}
+              options={formContext.options}
+              markets={markets}
+              deliveryCompanies={formContext.deliveryCompanies}
+              installCompanies={formContext.installCompanies}
             />
           </div>
           {linked.length === 0 ? (

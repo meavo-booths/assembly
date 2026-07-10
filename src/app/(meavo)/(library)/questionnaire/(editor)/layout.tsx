@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
-import { toggleQuestionnairePublished } from "@/app/actions/meavo";
+import { toggleQuestionnairePublished } from "@/app/actions/questionnaire";
+import { ActionForm } from "@/components/action-form";
 import { QuestionnaireNav } from "@/components/questionnaire-nav";
 import { Button, PageHeader } from "@/components/ui";
 
@@ -29,12 +30,12 @@ export default async function QuestionnaireLayout({ children }: { children: Reac
             >
               Preview
             </Link>
-            <form action={toggleQuestionnairePublished}>
+            <ActionForm action={toggleQuestionnairePublished}>
               <input type="hidden" name="publish" value={String(!questionnaire.isPublished)} />
               <Button type="submit" variant="secondary">
                 {questionnaire.isPublished ? "Unpublish" : "Publish"}
               </Button>
-            </form>
+            </ActionForm>
           </div>
         )}
       </PageHeader>

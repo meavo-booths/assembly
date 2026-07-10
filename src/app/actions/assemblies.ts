@@ -1,9 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import type { Assembly } from "@prisma/client";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { resolveInstallPartnerId } from "@/lib/assembly-partners";
+import { ASSEMBLY_REFERENCE_TAG } from "@/lib/assembly-form-suggestions";
 import {
   appendAssemblyRow,
   clearAssemblyRow,
@@ -30,8 +32,6 @@ type ParsedAssembly = {
   channelType: string;
   eventType: ReturnType<typeof parseEventType>;
   internalTeam: ReturnType<typeof parseInternalTeam>;
-  clientEmail: string | null;
-  clientPhone: string | null;
   assemblyAddress: string | null;
   deliveryPartnerName: string;
   installPartnerName: string;
@@ -84,8 +84,6 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
       channelType: str(formData, "channelType"),
       eventType: parseEventType(formData.get("eventType")),
       internalTeam: parseInternalTeam(formData.get("internalTeam")),
-      clientEmail: null,
-      clientPhone: null,
       assemblyAddress: str(formData, "assemblyAddress") || null,
       deliveryPartnerName: str(formData, "deliveryPartnerName"),
       installPartnerName: str(formData, "installPartnerName"),
@@ -102,6 +100,27 @@ function parseAssemblyForm(formData: FormData): { data?: ParsedAssembly; error?:
         .slice(0, MAX_ISSUE_CATEGORIES),
       comments: str(formData, "comments") || null,
     },
+  };
+}
+
+/** Sheet fields for an existing DB row — used to restore the sheet if a DB write fails. */
+function assemblyToSheetFields(assembly: Assembly): AssemblySheetFields {
+  return {
+    assemblyDate: assembly.assemblyDate,
+    dealId: assembly.dealId,
+    market: assembly.market,
+    clientName: assembly.clientName,
+    channelType: assembly.channelType,
+    closure: assembly.closure,
+    survey: assembly.survey,
+    fulfilledOn: assembly.fulfilledOn,
+    deliveryPartnerName: assembly.deliveryPartnerName,
+    installPartnerName: assembly.installPartnerName,
+    issue: issueToSheet(assembly.issue),
+    status: assembly.status ?? "",
+    priority: assembly.priority ?? "",
+    comments: assembly.comments ?? "",
+    issueCategories: assembly.issueCategories,
   };
 }
 
@@ -129,6 +148,8 @@ function revalidateAssemblyViews(dealId: string) {
   revalidatePath("/");
   revalidatePath("/calendar");
   revalidatePath(`/assemblies/${dealId}`);
+  // Markets / partner-name suggestions may have changed with this mutation.
+  revalidateTag(ASSEMBLY_REFERENCE_TAG);
 }
 
 export async function createAssembly(formData: FormData): Promise<{ error?: string }> {
@@ -166,38 +187,55 @@ export async function createAssembly(formData: FormData): Promise<{ error?: stri
     return { error: `Sheet update failed: ${message}` };
   }
 
-  await prisma.assembly.create({
-    data: {
-      dealId: data.dealId,
-      linkedDealId: data.linkedDealId,
-      assemblyDate: data.assemblyDate,
-      assemblyTime: data.assemblyTime,
-      market: data.market,
-      clientName: data.clientName,
-      channelType: data.channelType,
-      deliveryPartnerName: data.deliveryPartnerName,
-      installPartnerName: data.installPartnerName,
-      installPartnerId,
-      source: "APP_CREATED",
-      eventType: data.eventType,
-      internalTeam: data.internalTeam,
-      clientEmail: data.clientEmail,
-      clientPhone: data.clientPhone,
-      assemblyAddress: data.assemblyAddress,
-      closure: data.closure,
-      survey: data.survey,
-      fulfilledOn: data.fulfilledOn,
-      issue: data.issue,
-      status: data.status,
-      priority: data.priority,
-      issueCategories: data.issueCategories,
-      comments: data.comments,
-      sheetRowNumber: rowNumber,
-      lastImportedAt: new Date(),
-    },
-  });
+  try {
+    await prisma.assembly.create({
+      data: {
+        dealId: data.dealId,
+        linkedDealId: data.linkedDealId,
+        assemblyDate: data.assemblyDate,
+        assemblyTime: data.assemblyTime,
+        market: data.market,
+        clientName: data.clientName,
+        channelType: data.channelType,
+        deliveryPartnerName: data.deliveryPartnerName,
+        installPartnerName: data.installPartnerName,
+        installPartnerId,
+        source: "APP_CREATED",
+        eventType: data.eventType,
+        internalTeam: data.internalTeam,
+        assemblyAddress: data.assemblyAddress,
+        closure: data.closure,
+        survey: data.survey,
+        fulfilledOn: data.fulfilledOn,
+        issue: data.issue,
+        status: data.status,
+        priority: data.priority,
+        issueCategories: data.issueCategories,
+        comments: data.comments,
+        sheetRowNumber: rowNumber,
+        lastImportedAt: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error(`createAssembly DB write failed for "${data.dealId}":`, error);
+    // Compensate: remove the sheet row we just appended so the sheet and DB
+    // don't diverge (the importer would otherwise re-create a partial row).
+    if (rowNumber) {
+      await clearAssemblyRow(rowNumber).catch((cleanupError) => {
+        console.error(
+          `createAssembly sheet cleanup failed for row ${rowNumber}:`,
+          cleanupError,
+        );
+      });
+    }
+    return { error: "Could not save the assembly. Please try again." };
+  }
 
   revalidateAssemblyViews(data.dealId);
+  if (data.linkedDealId) {
+    revalidatePath("/deals");
+    revalidatePath(`/deals/${data.linkedDealId}`);
+  }
   return {};
 }
 
@@ -252,36 +290,49 @@ export async function updateAssembly(
     ? await resolveInstallPartnerId(data.installPartnerName)
     : null;
 
-  await prisma.assembly.update({
-    where: { id },
-    data: {
-      dealId,
-      linkedDealId: data.linkedDealId,
-      assemblyDate: data.assemblyDate,
-      assemblyTime: data.assemblyTime,
-      market: data.market,
-      clientName: data.clientName,
-      channelType: data.channelType,
-      deliveryPartnerName: data.deliveryPartnerName,
-      installPartnerName: data.installPartnerName,
-      installPartnerId,
-      eventType: data.eventType,
-      internalTeam: data.internalTeam,
-      clientEmail: data.clientEmail,
-      clientPhone: data.clientPhone,
-      assemblyAddress: data.assemblyAddress,
-      closure: data.closure,
-      survey: data.survey,
-      fulfilledOn: data.fulfilledOn,
-      issue: data.issue,
-      status: data.status,
-      priority: data.priority,
-      issueCategories: data.issueCategories,
-      comments: data.comments,
-      sheetRowNumber: rowNumber,
-      sheetSyncError: null,
-    },
-  });
+  try {
+    await prisma.assembly.update({
+      where: { id },
+      data: {
+        dealId,
+        linkedDealId: data.linkedDealId,
+        assemblyDate: data.assemblyDate,
+        assemblyTime: data.assemblyTime,
+        market: data.market,
+        clientName: data.clientName,
+        channelType: data.channelType,
+        deliveryPartnerName: data.deliveryPartnerName,
+        installPartnerName: data.installPartnerName,
+        installPartnerId,
+        eventType: data.eventType,
+        internalTeam: data.internalTeam,
+        assemblyAddress: data.assemblyAddress,
+        closure: data.closure,
+        survey: data.survey,
+        fulfilledOn: data.fulfilledOn,
+        issue: data.issue,
+        status: data.status,
+        priority: data.priority,
+        issueCategories: data.issueCategories,
+        comments: data.comments,
+        sheetRowNumber: rowNumber,
+        sheetSyncError: null,
+      },
+    });
+  } catch (error) {
+    console.error(`updateAssembly DB write failed for "${assembly.dealId}":`, error);
+    // Compensate: restore the sheet row from the previous DB values so the
+    // sheet doesn't hold changes that were never saved.
+    await updateAssemblyRow(rowNumber, assemblyToSheetFields(assembly)).catch(
+      (restoreError) => {
+        console.error(
+          `updateAssembly sheet restore failed for row ${rowNumber}:`,
+          restoreError,
+        );
+      },
+    );
+    return { error: "Could not save the changes. Please try again." };
+  }
 
   if (dealId !== assembly.dealId) revalidateAssemblyViews(assembly.dealId);
   revalidateAssemblyViews(dealId);
@@ -296,8 +347,9 @@ export async function deleteAssembly(id: string): Promise<{ error?: string }> {
 
   // Clear the sheet row first (fail closed, like create/update). The row is
   // blanked rather than removed so other assemblies' row numbers stay valid.
+  let rowNumber: number | null = null;
   try {
-    const rowNumber = assembly.sheetRowNumber ?? (await findSheetRowByDealId(assembly.dealId));
+    rowNumber = assembly.sheetRowNumber ?? (await findSheetRowByDealId(assembly.dealId));
     if (rowNumber) await clearAssemblyRow(rowNumber);
   } catch (error) {
     const message =
@@ -305,8 +357,24 @@ export async function deleteAssembly(id: string): Promise<{ error?: string }> {
     return { error: `Sheet update failed: ${message}` };
   }
 
-  // Questionnaire submissions (answers, photos) cascade with the assembly.
-  await prisma.assembly.delete({ where: { id } });
+  try {
+    // Questionnaire submissions (answers, photos) cascade with the assembly.
+    await prisma.assembly.delete({ where: { id } });
+  } catch (error) {
+    console.error(`deleteAssembly DB delete failed for "${assembly.dealId}":`, error);
+    // Compensate: rewrite the cleared sheet row so sheet and DB stay in sync.
+    if (rowNumber) {
+      await updateAssemblyRow(rowNumber, assemblyToSheetFields(assembly)).catch(
+        (restoreError) => {
+          console.error(
+            `deleteAssembly sheet restore failed for row ${rowNumber}:`,
+            restoreError,
+          );
+        },
+      );
+    }
+    return { error: "Could not delete the assembly. Please try again." };
+  }
 
   revalidateAssemblyViews(assembly.dealId);
   if (assembly.linkedDealId) revalidatePath(`/deals/${assembly.linkedDealId}`);

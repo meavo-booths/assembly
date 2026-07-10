@@ -1,7 +1,8 @@
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
-import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
-import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
+import { loadScheduleFormContext } from "@/lib/schedule-form-context";
+import { getAssemblyMarkets } from "@/lib/assembly-form-suggestions";
+import { dealSummaryInclude } from "@/lib/deal-queries";
 import { eventTypeLabel } from "@/lib/assembly-schedule";
 import {
   buildAssemblyPrefill,
@@ -17,26 +18,15 @@ export const dynamic = "force-dynamic";
 export default async function ReadyDealsPage() {
   await requireMeavoAccess();
 
-  const [deals, dropdownOptions, partnerSuggestions, marketRows] = await Promise.all([
+  const [deals, formContext, markets] = await Promise.all([
     prisma.deal.findMany({
       where: { stage: "WON", readyToAssemble: true, dealId: { not: null } },
       orderBy: { wonAt: "desc" },
-      include: {
-        contacts: { orderBy: { sortOrder: "asc" } },
-        lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
-        client: { select: { isVip: true } },
-      },
+      include: dealSummaryInclude,
     }),
-    getAssemblyDropdownOptions(),
-    getPartnerNameSuggestions(),
-    prisma.assembly.findMany({
-      where: { market: { not: "" } },
-      distinct: ["market"],
-      select: { market: true },
-      orderBy: { market: "asc" },
-    }),
+    loadScheduleFormContext(),
+    getAssemblyMarkets(),
   ]);
-  const markets = marketRows.map((row) => row.market);
 
   const dealIds = deals.flatMap((deal) => (deal.dealId ? [deal.dealId] : []));
   const linkedAssemblies =
@@ -103,10 +93,10 @@ export default async function ReadyDealsPage() {
                 deal={buildLinkedDealSummary(deal)}
                 linkedAssemblies={assemblies}
                 prefill={buildAssemblyPrefill(deal, suggestAssemblyId(dealId, takenIds))}
-                options={dropdownOptions}
+                options={formContext.options}
                 markets={markets}
-                deliveryCompanies={partnerSuggestions.deliveryCompanies}
-                installCompanies={partnerSuggestions.installCompanies}
+                deliveryCompanies={formContext.deliveryCompanies}
+                installCompanies={formContext.installCompanies}
               />
             );
           })}

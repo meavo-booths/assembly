@@ -1,4 +1,3 @@
-import { migrateOrphanQuestions } from "@/lib/questionnaire-db";
 import { prisma } from "@/lib/prisma";
 import { buildLocaleTranslationBundles } from "@/lib/questionnaire-translation-status";
 import { QuestionnaireTranslationsPanel } from "@/components/questionnaire-translations-panel";
@@ -12,36 +11,17 @@ export default async function QuestionnaireTranslationsPage() {
       sections: {
         orderBy: { sortOrder: "asc" },
         include: {
-          questions: { orderBy: { sortOrder: "asc" } },
+          questions: {
+            orderBy: { sortOrder: "asc" },
+            include: { translations: true },
+          },
           translations: true,
         },
       },
     },
   });
 
-  if (questionnaire) {
-    await migrateOrphanQuestions(questionnaire.id);
-  }
-
-  const refreshed = questionnaire
-    ? await prisma.questionnaire.findFirst({
-        where: { id: questionnaire.id },
-        include: {
-          sections: {
-            orderBy: { sortOrder: "asc" },
-            include: {
-              questions: {
-                orderBy: { sortOrder: "asc" },
-                include: { translations: true },
-              },
-              translations: true,
-            },
-          },
-        },
-      })
-    : null;
-
-  const sections = refreshed?.sections ?? [];
+  const sections = questionnaire?.sections ?? [];
 
   const sectionTranslations = sections.flatMap((section) => section.translations);
   const questionTranslations = sections.flatMap((section) =>

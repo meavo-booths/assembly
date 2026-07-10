@@ -10,6 +10,8 @@ import {
 } from "@/lib/sheets-columns";
 import { issueFromSheet } from "@/lib/assembly-schedule";
 
+const UPSERT_BATCH_SIZE = 50;
+
 export async function importAssembliesFromSheet(): Promise<{
   imported: number;
   partnersCreated: number;
@@ -30,6 +32,61 @@ export async function importAssembliesFromSheet(): Promise<{
       .catch(() => {});
     throw error;
   }
+}
+
+/** Sheet-mirrored fields written by the importer (app-only fields are preserved). */
+type MirroredFields = {
+  assemblyDate: Date | null;
+  market: string;
+  clientName: string;
+  channelType: string;
+  deliveryPartnerName: string;
+  installPartnerName: string;
+  installPartnerId: string | null;
+  closure: boolean;
+  survey: boolean;
+  fulfilledOn: Date | null;
+  issue: ReturnType<typeof issueFromSheet>;
+  status: string | null;
+  priority: string | null;
+  comments: string | null;
+  issueCategories: string[];
+  sheetRowNumber: number;
+};
+
+type ExistingRow = MirroredFields & { dealId: string };
+
+function sameDate(a: Date | null, b: Date | null): boolean {
+  return (a?.getTime() ?? null) === (b?.getTime() ?? null);
+}
+
+/** True when a DB row already matches the sheet row (skip the upsert). */
+function isUnchanged(existing: ExistingRow, next: MirroredFields): boolean {
+  return (
+    sameDate(existing.assemblyDate, next.assemblyDate) &&
+    existing.market === next.market &&
+    existing.clientName === next.clientName &&
+    existing.channelType === next.channelType &&
+    existing.deliveryPartnerName === next.deliveryPartnerName &&
+    existing.installPartnerName === next.installPartnerName &&
+    existing.installPartnerId === next.installPartnerId &&
+    existing.closure === next.closure &&
+    existing.survey === next.survey &&
+    sameDate(existing.fulfilledOn, next.fulfilledOn) &&
+    existing.issue === next.issue &&
+    existing.status === next.status &&
+    existing.priority === next.priority &&
+    existing.comments === next.comments &&
+    existing.issueCategories.length === next.issueCategories.length &&
+    existing.issueCategories.every((value, i) => value === next.issueCategories[i]) &&
+    existing.sheetRowNumber === next.sheetRowNumber
+  );
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
 }
 
 async function runImport(): Promise<{
@@ -56,6 +113,33 @@ async function runImport(): Promise<{
 
   const columns = resolveAssemblyColumns(rows[0]);
 
+  // Load the current mirrored state once so unchanged rows can be skipped
+  // instead of re-upserted every run.
+  const existingRows = await prisma.assembly.findMany({
+    select: {
+      dealId: true,
+      assemblyDate: true,
+      market: true,
+      clientName: true,
+      channelType: true,
+      deliveryPartnerName: true,
+      installPartnerName: true,
+      installPartnerId: true,
+      closure: true,
+      survey: true,
+      fulfilledOn: true,
+      issue: true,
+      status: true,
+      priority: true,
+      comments: true,
+      issueCategories: true,
+      sheetRowNumber: true,
+    },
+  });
+  const existingByDealId = new Map(
+    existingRows.map((row) => [row.dealId, { ...row, sheetRowNumber: row.sheetRowNumber ?? -1 }]),
+  );
+
   let imported = 0;
   let partnersCreated = 0;
   let failedRows = 0;
@@ -65,14 +149,14 @@ async function runImport(): Promise<{
   async function partnerIdForName(name: string): Promise<string | null> {
     const key = name.trim().toLowerCase();
     if (partnerCache.has(key)) return partnerCache.get(key) ?? null;
-    const before = await prisma.assemblyPartner.count();
-    const partner = await ensurePartner(name);
-    const after = await prisma.assemblyPartner.count();
-    if (after > before) partnersCreated += 1;
+    const { partner, created } = await ensurePartner(name);
+    if (created) partnersCreated += 1;
     const id = partner?.id ?? null;
     partnerCache.set(key, id);
     return id;
   }
+
+  const pending: { rowIndex: number; dealId: string; mirrored: MirroredFields }[] = [];
 
   for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i] ?? [];
@@ -86,9 +170,9 @@ async function runImport(): Promise<{
       const installPartnerId = installName ? await partnerIdForName(installName) : null;
 
       // Only sheet-mirrored columns are written; app-only fields (eventType,
-      // internalTeam, clientEmail/Phone, assemblyAddress, source) are preserved
-      // by leaving them out of the update payload.
-      const mirrored = {
+      // internalTeam, assemblyAddress, source) are preserved by leaving them
+      // out of the update payload.
+      const mirrored: MirroredFields = {
         assemblyDate: parseSheetDate(cellString(row, columns.date)),
         market: cellString(row, columns.market),
         clientName: cellString(row, columns.client),
@@ -107,20 +191,59 @@ async function runImport(): Promise<{
           cellString(row, index),
         ).filter(Boolean),
         sheetRowNumber: i + 1,
-        lastImportedAt: new Date(),
       };
 
-      await prisma.assembly.upsert({
-        where: { dealId },
-        create: { dealId, source: "SHEET_IMPORTED", ...mirrored },
-        update: mirrored,
-      });
-      imported += 1;
+      const existing = existingByDealId.get(dealId);
+      if (existing && isUnchanged(existing, mirrored)) {
+        imported += 1;
+        continue;
+      }
+
+      pending.push({ rowIndex: i, dealId, mirrored });
     } catch (error) {
       failedRows += 1;
       const message = error instanceof Error ? error.message : "Unknown row error";
       if (!firstRowError) firstRowError = `Row ${i + 1} (${dealId}): ${message}`;
       console.error(`Sheet import failed for row ${i + 1} (${dealId}):`, error);
+    }
+  }
+
+  // Write changed/new rows in batched transactions; fall back to row-by-row
+  // for a failed batch so one bad row doesn't sink its whole chunk.
+  const importedAt = new Date();
+  for (const batch of chunk(pending, UPSERT_BATCH_SIZE)) {
+    const upsertFor = (item: (typeof batch)[number]) =>
+      prisma.assembly.upsert({
+        where: { dealId: item.dealId },
+        create: {
+          dealId: item.dealId,
+          source: "SHEET_IMPORTED",
+          ...item.mirrored,
+          lastImportedAt: importedAt,
+        },
+        update: { ...item.mirrored, lastImportedAt: importedAt },
+      });
+
+    try {
+      await prisma.$transaction(batch.map(upsertFor));
+      imported += batch.length;
+    } catch {
+      for (const item of batch) {
+        try {
+          await upsertFor(item);
+          imported += 1;
+        } catch (error) {
+          failedRows += 1;
+          const message = error instanceof Error ? error.message : "Unknown row error";
+          if (!firstRowError) {
+            firstRowError = `Row ${item.rowIndex + 1} (${item.dealId}): ${message}`;
+          }
+          console.error(
+            `Sheet import failed for row ${item.rowIndex + 1} (${item.dealId}):`,
+            error,
+          );
+        }
+      }
     }
   }
 

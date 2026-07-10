@@ -9,10 +9,11 @@ import {
   normalizeWeek,
   type CalendarView,
 } from "@/lib/calendar-dates";
-import { getAssemblyDropdownOptions } from "@/lib/sheets-export";
-import { getPartnerNameSuggestions } from "@/lib/assembly-form-suggestions";
+import { loadScheduleFormContext } from "@/lib/schedule-form-context";
+import { getAssemblyMarkets } from "@/lib/assembly-form-suggestions";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
 import { buildLinkedDealSummary } from "@/lib/deal-summary";
+import { dealSummaryInclude } from "@/lib/deal-queries";
 import {
   CALENDAR_MARKETS_COOKIE,
   CALENDAR_MARKET_COOKIE_LEGACY,
@@ -50,7 +51,7 @@ export default async function CalendarPage({
 
   const { start, end } = view === "week" ? gridRangeForWeek(week) : gridRangeForMonth(month);
 
-  const [assemblies, marketRows, options, partnerSuggestions] = await Promise.all([
+  const [assemblies, markets, formContext] = await Promise.all([
     prisma.assembly.findMany({
       where: {
         assemblyDate: { gte: start, lte: end },
@@ -60,17 +61,9 @@ export default async function CalendarPage({
       include: { submissions: { select: { status: true } } },
       take: 1000,
     }),
-    prisma.assembly.findMany({
-      where: { market: { not: "" } },
-      distinct: ["market"],
-      select: { market: true },
-      orderBy: { market: "asc" },
-    }),
-    getAssemblyDropdownOptions(),
-    getPartnerNameSuggestions(),
+    getAssemblyMarkets(),
+    loadScheduleFormContext(),
   ]);
-
-  const markets = marketRows.map((row) => row.market);
 
   const linkedDealIds = [
     ...new Set(
@@ -81,11 +74,7 @@ export default async function CalendarPage({
     linkedDealIds.length > 0
       ? await prisma.deal.findMany({
           where: { dealId: { in: linkedDealIds } },
-          include: {
-            contacts: { orderBy: { sortOrder: "asc" } },
-            lineItems: { include: { product: true }, orderBy: { sortOrder: "asc" } },
-            client: { select: { isVip: true } },
-          },
+          include: dealSummaryInclude,
         })
       : [];
   const dealById = new Map(
@@ -108,9 +97,9 @@ export default async function CalendarPage({
       week={week}
       selectedMarkets={selectedMarkets}
       markets={markets}
-      deliveryCompanies={partnerSuggestions.deliveryCompanies}
-      installCompanies={partnerSuggestions.installCompanies}
-      options={options}
+      deliveryCompanies={formContext.deliveryCompanies}
+      installCompanies={formContext.installCompanies}
+      options={formContext.options}
     />
   );
 }

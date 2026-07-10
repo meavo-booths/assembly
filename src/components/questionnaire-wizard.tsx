@@ -10,7 +10,6 @@ import {
 } from "@/lib/questionnaire";
 import { getQuestionnaireUiCopy } from "@/lib/questionnaire-ui";
 import { saveQuestionAnswer, submitQuestionnaire, uploadSubmissionPhotos } from "@/app/actions/partner";
-import { COMPRESS_PHOTO_ERROR, compressPhotoForUpload } from "@/lib/compress-photo";
 import { MAX_SOURCE_PHOTO_BYTES, MAX_SOURCE_PHOTO_ERROR } from "@/lib/upload-limits";
 import { QuestionnaireLanguagePicker } from "@/components/questionnaire-language-picker";
 import { Button, Card } from "@/components/ui";
@@ -75,7 +74,8 @@ export function QuestionnaireWizard({
     setSaveState("saving");
     startTransition(async () => {
       try {
-        await saveQuestionAnswer(slug, dealId, questionId, answer);
+        const result = await saveQuestionAnswer(slug, dealId, questionId, answer);
+        if (result?.error) throw new Error(result.error);
         setSaveState("saved");
         setFailedSave(null);
       } catch {
@@ -177,6 +177,10 @@ export function QuestionnaireWizard({
 
       {saveIndicator}
 
+      {error && currentStep.kind !== "photos" && (
+        <p className="mb-3 text-center text-sm text-red-600">{error}</p>
+      )}
+
       {currentStep.kind === "section" && (
         <Card>
           <p className="text-lg font-medium text-slate-900">{currentStep.title}</p>
@@ -274,8 +278,12 @@ export function QuestionnaireWizard({
                     completePreview();
                     return;
                   }
+                  setError(null);
                   startTransition(async () => {
-                    if (slug && dealId) await submitQuestionnaire(slug, dealId);
+                    if (slug && dealId) {
+                      const result = await submitQuestionnaire(slug, dealId);
+                      if (result?.error) setError(result.error);
+                    }
                   });
                   return;
                 }
@@ -340,7 +348,17 @@ export function QuestionnaireWizard({
                 }
                 startTransition(async () => {
                   if (slug && dealId) {
-                    await saveQuestionAnswer(slug, dealId, currentStep.question.id, { textAnswer: text });
+                    const result = await saveQuestionAnswer(slug, dealId, currentStep.question.id, {
+                      textAnswer: text,
+                    });
+                    if (result?.error) {
+                      setSaveState("error");
+                      setFailedSave({
+                        questionId: currentStep.question.id,
+                        answer: { textAnswer: text },
+                      });
+                      return;
+                    }
                   }
                   goNext();
                 });
@@ -397,6 +415,11 @@ export function QuestionnaireWizard({
 
                   setCompressing(true);
                   let compressedFiles: File[];
+                  // Loaded on demand so browser-image-compression stays out of
+                  // the wizard's initial bundle.
+                  const { COMPRESS_PHOTO_ERROR, compressPhotoForUpload } = await import(
+                    "@/lib/compress-photo"
+                  );
                   try {
                     compressedFiles = await Promise.all(files.map(compressPhotoForUpload));
                   } catch {
@@ -471,7 +494,10 @@ export function QuestionnaireWizard({
                   onClick={() => {
                     setError(null);
                     startTransition(async () => {
-                      if (slug && dealId) await submitQuestionnaire(slug, dealId);
+                      if (slug && dealId) {
+                        const result = await submitQuestionnaire(slug, dealId);
+                        if (result?.error) setError(result.error);
+                      }
                     });
                   }}
                 >

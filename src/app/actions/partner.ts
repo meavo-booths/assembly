@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { SubmissionStatus } from "@prisma/client";
@@ -20,12 +21,6 @@ import {
 } from "@/lib/upload-limits";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 
-async function requireAuthenticatedPartner(slug: string) {
-  const partner = await requirePartnerSession(slug);
-  if (!partner) throw new Error("Unauthorized");
-  return partner;
-}
-
 async function findSubmission(assemblyId: string, partnerId: string) {
   return prisma.questionnaireSubmission.findUnique({
     where: { assemblyId_partnerId: { assemblyId, partnerId } },
@@ -33,16 +28,72 @@ async function findSubmission(assemblyId: string, partnerId: string) {
   });
 }
 
+const SUBMITTED_ERROR =
+  "Questionnaire has already been submitted and can no longer be changed.";
+
+type OpenSubmissionContext = {
+  partner: NonNullable<Awaited<ReturnType<typeof requirePartnerSession>>>;
+  assembly: NonNullable<Awaited<ReturnType<typeof prisma.assembly.findFirst>>>;
+  existing: Awaited<ReturnType<typeof findSubmission>>;
+};
+
+/**
+ * Shared preamble for questionnaire mutations: partner session, the partner's
+ * assembly, and the current submission (rejecting already-submitted ones).
+ */
+async function loadOpenSubmissionContext(
+  slug: string,
+  dealId: string,
+): Promise<{ error: string } | OpenSubmissionContext> {
+  const partner = await requirePartnerSession(slug);
+  if (!partner) return { error: "Your session has expired. Please log in again." };
+
+  const assembly = await prisma.assembly.findFirst({
+    where: { dealId, installPartnerId: partner.id },
+  });
+  if (!assembly) return { error: "Assembly not found." };
+
+  const existing = await findSubmission(assembly.id, partner.id);
+  if (existing?.status === SubmissionStatus.SUBMITTED) return { error: SUBMITTED_ERROR };
+
+  return { partner, assembly, existing };
+}
+
+/** Get or create the partner's in-progress submission for an assembly. */
+async function upsertInProgressSubmission(
+  assemblyId: string,
+  partnerId: string,
+  { touchStatus }: { touchStatus: boolean },
+) {
+  return prisma.questionnaireSubmission.upsert({
+    where: { assemblyId_partnerId: { assemblyId, partnerId } },
+    create: {
+      assemblyId,
+      partnerId,
+      status: SubmissionStatus.IN_PROGRESS,
+    },
+    update: touchStatus ? { status: SubmissionStatus.IN_PROGRESS } : {},
+  });
+}
+
+async function clientIpForThrottle(): Promise<string> {
+  const headerStore = await headers();
+  const forwarded = headerStore.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || "unknown";
+}
+
 export async function partnerLogin(slug: string, formData: FormData): Promise<{ error?: string }> {
   const code = String(formData.get("code") ?? "").trim();
 
-  const throttleKey = `assembly-partner:${slug}`;
+  // Scoped per slug AND per IP so one attacker can't lock a partner out of
+  // their portal, while still bounding attempts from a single source.
+  const throttleKey = `assembly-partner:${slug}:${await clientIpForThrottle()}`;
   if (await isLoginThrottled(throttleKey)) {
     return { error: THROTTLE_ERROR };
   }
 
   const partner = await prisma.assemblyPartner.findFirst({
-    where: { slug, isActive: true },
+    where: { slug, isActive: true, isInternal: false },
   });
 
   if (!partner?.codeHash) {
@@ -56,7 +107,7 @@ export async function partnerLogin(slug: string, formData: FormData): Promise<{ 
   }
 
   await clearLoginThrottle(throttleKey);
-  await setPartnerSession(partner.id);
+  await setPartnerSession(partner);
   revalidatePath(`/${slug}`);
   redirect(`/${slug}`);
 }
@@ -71,35 +122,19 @@ export async function saveQuestionAnswer(
   dealId: string,
   questionId: string,
   answer: { checked?: boolean; textAnswer?: string; yesNoAnswer?: boolean },
-): Promise<void> {
-  const partner = await requireAuthenticatedPartner(slug);
-
-  const assembly = await prisma.assembly.findFirst({
-    where: { dealId, installPartnerId: partner.id },
-  });
-  if (!assembly) throw new Error("Assembly not found");
-
-  const existing = await findSubmission(assembly.id, partner.id);
-  if (existing?.status === SubmissionStatus.SUBMITTED) {
-    throw new Error("Questionnaire has already been submitted and can no longer be changed.");
-  }
+): Promise<{ error?: string }> {
+  const context = await loadOpenSubmissionContext(slug, dealId);
+  if ("error" in context) return { error: context.error };
+  const { partner, assembly } = context;
 
   const question = await prisma.question.findFirst({
     where: { id: questionId, questionnaire: { isPublished: true } },
     select: { id: true },
   });
-  if (!question) throw new Error("Question not found");
+  if (!question) return { error: "Question not found." };
 
-  const submission = await prisma.questionnaireSubmission.upsert({
-    where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
-    create: {
-      assemblyId: assembly.id,
-      partnerId: partner.id,
-      status: SubmissionStatus.IN_PROGRESS,
-    },
-    update: {
-      status: SubmissionStatus.IN_PROGRESS,
-    },
+  const submission = await upsertInProgressSubmission(assembly.id, partner.id, {
+    touchStatus: true,
   });
 
   const data =
@@ -109,13 +144,19 @@ export async function saveQuestionAnswer(
         ? { textAnswer: answer.textAnswer.trim(), checked: false, yesNoAnswer: null }
         : { checked: answer.checked ?? false, yesNoAnswer: null };
 
-  await prisma.questionAnswer.upsert({
-    where: {
-      submissionId_questionId: { submissionId: submission.id, questionId },
-    },
-    create: { submissionId: submission.id, questionId, ...data },
-    update: data,
-  });
+  try {
+    await prisma.questionAnswer.upsert({
+      where: {
+        submissionId_questionId: { submissionId: submission.id, questionId },
+      },
+      create: { submissionId: submission.id, questionId, ...data },
+      update: data,
+    });
+  } catch (error) {
+    console.error("saveQuestionAnswer failed:", error);
+    return { error: "Could not save the answer. Please retry." };
+  }
+  return {};
 }
 
 export async function uploadSubmissionPhotos(
@@ -123,31 +164,12 @@ export async function uploadSubmissionPhotos(
   dealId: string,
   formData: FormData,
 ): Promise<{ error?: string }> {
-  let partner;
-  try {
-    partner = await requireAuthenticatedPartner(slug);
-  } catch {
-    return { error: "Unauthorized." };
-  }
+  const context = await loadOpenSubmissionContext(slug, dealId);
+  if ("error" in context) return { error: context.error };
+  const { partner, assembly } = context;
 
-  const assembly = await prisma.assembly.findFirst({
-    where: { dealId, installPartnerId: partner.id },
-  });
-  if (!assembly) return { error: "Assembly not found." };
-
-  const existing = await findSubmission(assembly.id, partner.id);
-  if (existing?.status === SubmissionStatus.SUBMITTED) {
-    return { error: "Questionnaire has already been submitted and can no longer be changed." };
-  }
-
-  const submission = await prisma.questionnaireSubmission.upsert({
-    where: { assemblyId_partnerId: { assemblyId: assembly.id, partnerId: partner.id } },
-    create: {
-      assemblyId: assembly.id,
-      partnerId: partner.id,
-      status: SubmissionStatus.IN_PROGRESS,
-    },
-    update: {},
+  const submission = await upsertInProgressSubmission(assembly.id, partner.id, {
+    touchStatus: false,
   });
 
   const files = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
@@ -167,22 +189,24 @@ export async function uploadSubmissionPhotos(
   }
 
   try {
-    for (let i = 0; i < files.length; i += 1) {
-      const file = files[i];
-      const blob = await put(`assembly/${assembly.dealId}/${file.name}`, file, {
-        access: "private",
-        addRandomSuffix: true,
-        contentType: file.type || "image/jpeg",
-      });
-      await prisma.submissionPhoto.create({
-        data: {
-          submissionId: submission.id,
-          storageKey: blob.pathname,
-          fileName: file.name,
-          sortOrder: existingCount + i,
-        },
-      });
-    }
+    // Upload all blobs in parallel, then insert the rows in one batch.
+    const blobs = await Promise.all(
+      files.map((file) =>
+        put(`assembly/${assembly.dealId}/${file.name}`, file, {
+          access: "private",
+          addRandomSuffix: true,
+          contentType: file.type || "image/jpeg",
+        }),
+      ),
+    );
+    await prisma.submissionPhoto.createMany({
+      data: blobs.map((blob, i) => ({
+        submissionId: submission.id,
+        storageKey: blob.pathname,
+        fileName: files[i].name,
+        sortOrder: existingCount + i,
+      })),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Photo upload failed.";
     return { error: message };
@@ -192,13 +216,17 @@ export async function uploadSubmissionPhotos(
   return {};
 }
 
-export async function submitQuestionnaire(slug: string, dealId: string): Promise<void> {
-  const partner = await requireAuthenticatedPartner(slug);
+export async function submitQuestionnaire(
+  slug: string,
+  dealId: string,
+): Promise<{ error?: string }> {
+  const partner = await requirePartnerSession(slug);
+  if (!partner) return { error: "Your session has expired. Please log in again." };
 
   const assembly = await prisma.assembly.findFirst({
     where: { dealId, installPartnerId: partner.id },
   });
-  if (!assembly) throw new Error("Assembly not found");
+  if (!assembly) return { error: "Assembly not found." };
 
   const existing = await findSubmission(assembly.id, partner.id);
   if (existing?.status === SubmissionStatus.SUBMITTED) {

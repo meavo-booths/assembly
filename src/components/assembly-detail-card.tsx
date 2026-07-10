@@ -1,12 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import {
-  ScheduleAssemblyForm,
-  type AssemblyFormValues,
-} from "@/components/schedule-assembly-form";
+import { ScheduleAssemblyForm } from "@/components/schedule-assembly-form";
+import type { AssemblyFormValues } from "@/lib/assembly-form-values";
 import type { SheetDropdownOptions } from "@/lib/assembly-schedule";
-import type { LinkedDealSummary } from "@/components/linked-deal-card";
+import type { LinkedDealSummary } from "@/lib/deal-summary";
 import { Button, Card } from "@/components/ui";
 
 export function AssemblyDetailCard({

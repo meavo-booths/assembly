@@ -6,11 +6,14 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@meavo/navigation/server";
-import { auth } from "@/lib/auth";
+import { getMeavoSession } from "@/lib/meavo-auth";
 import { prisma } from "@/lib/prisma";
 
 async function requireUserId(): Promise<string> {
-  const session = await auth();
+  // Tool-card access is re-checked per request so gateway revocation applies
+  // immediately. Throws (rather than redirecting) because these actions are
+  // called from background nav polling.
+  const session = await getMeavoSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user.id;
 }

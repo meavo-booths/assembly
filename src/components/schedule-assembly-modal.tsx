@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ScheduleAssemblyForm,
-  type AssemblyFormValues,
-} from "@/components/schedule-assembly-form";
-import type { LinkedDealSummary } from "@/components/linked-deal-card";
+import dynamic from "next/dynamic";
+import type { AssemblyFormValues } from "@/lib/assembly-form-values";
+import type { LinkedDealSummary } from "@/lib/deal-summary";
 import type { SheetDropdownOptions } from "@/lib/assembly-schedule";
+
+// Code-split: the 400+ line form only loads when the modal is opened.
+const ScheduleAssemblyForm = dynamic(
+  () => import("@/components/schedule-assembly-form").then((m) => m.ScheduleAssemblyForm),
+  { ssr: false, loading: () => <p className="text-sm text-slate-500">Loading form…</p> },
+);
 
 /**
  * Shared create-assembly modal used by the assemblies page ("New assembly")
