@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuestionType } from "@prisma/client";
-import { requireMeavoAccess } from "@/lib/meavo-auth";
+import { requireMeavoAccess, hasTasksAccess } from "@/lib/meavo-auth";
+import { AddTaskLink } from "@/components/add-task-link";
 import { AssemblyDetailCard } from "@/components/assembly-detail-card";
 import { DeleteAssemblyButton } from "@/components/delete-assembly-button";
 import { buildLinkedDealSummary } from "@/lib/deal-summary";
@@ -18,7 +19,7 @@ export default async function AssemblyDetailPage({
 }: {
   params: Promise<{ dealId: string }>;
 }) {
-  await requireMeavoAccess();
+  const session = await requireMeavoAccess();
   const { dealId } = await params;
 
   const assembly = await prisma.assembly.findUnique({
@@ -53,6 +54,7 @@ export default async function AssemblyDetailPage({
 
   // The VIP label follows the client from the sales app onto every linked assembly.
   const isVip = linkedDealForForm?.client?.isVip ?? false;
+  const showAddTask = await hasTasksAccess(session.user!.id);
 
   return (
     <>
@@ -66,6 +68,12 @@ export default async function AssemblyDetailPage({
             >
               Deal {assembly.linkedDealId}
             </Link>
+          )}
+          {showAddTask && (
+            <AddTaskLink
+              entityId={assembly.id}
+              title={`Assembly: ${assembly.dealId}`}
+            />
           )}
           <Link href="/" className="text-sm text-brand-700 underline">
             Back to list
