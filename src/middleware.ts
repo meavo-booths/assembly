@@ -14,6 +14,7 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith("/api/")) return;
+  if (pathname === "/manifest.webmanifest") return;
   if (/\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(pathname)) return;
   if (!isMeavoRoute(pathname)) return;
 
@@ -30,6 +31,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
