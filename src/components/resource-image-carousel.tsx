@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type CarouselFile = {
   id: string;
   fileName: string;
+  caption: string;
 };
 
 export function ResourceImageCarousel({ files }: { files: CarouselFile[] }) {
@@ -44,6 +45,8 @@ export function ResourceImageCarousel({ files }: { files: CarouselFile[] }) {
 
   if (files.length === 0) return null;
 
+  const activeCaption = files[index]?.caption?.trim();
+
   return (
     <div className="space-y-3">
       <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
@@ -57,7 +60,7 @@ export function ResourceImageCarousel({ files }: { files: CarouselFile[] }) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`/api/resource-files/${file.id}`}
-                  alt={file.fileName}
+                  alt={file.caption || file.fileName}
                   className="max-h-full max-w-full object-contain"
                   loading="lazy"
                 />
@@ -89,6 +92,8 @@ export function ResourceImageCarousel({ files }: { files: CarouselFile[] }) {
           </>
         )}
       </div>
+
+      {activeCaption && <p className="text-sm text-slate-700">{activeCaption}</p>}
 
       {files.length > 1 && (
         <div className="flex items-center justify-center gap-3">

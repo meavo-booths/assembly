@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePartnerSession } from "@/lib/partner-session";
 import { parseBoothModelFilter } from "@/lib/booth-models";
+import { parseResourceCategoryFilter } from "@/lib/resource-categories";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
 import { ResourceLibraryList } from "@/components/resource-library-list";
+import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,7 @@ export default async function PartnerResourcesPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ model?: string }>;
+  searchParams: Promise<{ model?: string; category?: string }>;
 }) {
   const { slug } = await params;
   if (MEVAO_RESERVED_SEGMENTS.has(slug)) notFound();
@@ -21,13 +23,19 @@ export default async function PartnerResourcesPage({
   const partner = await requirePartnerSession(slug);
   if (!partner) notFound();
 
-  const { model: modelParam } = await searchParams;
+  const { model: modelParam, category: categoryParam } = await searchParams;
   const modelFilter = parseBoothModelFilter(modelParam);
+  const categoryFilter = parseResourceCategoryFilter(categoryParam);
+
+  const where: Prisma.ResourceWhereInput = {
+    ...(modelFilter ? { models: { some: { boothModel: modelFilter } } } : {}),
+    ...(categoryFilter ? { categories: { some: { category: categoryFilter } } } : {}),
+  };
 
   const resources = await prisma.resource.findMany({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    include: { models: true },
-    ...(modelFilter ? { where: { models: { some: { boothModel: modelFilter } } } } : {}),
+    include: { models: true, categories: true },
+    ...(Object.keys(where).length > 0 ? { where } : {}),
   });
 
   return (
@@ -44,6 +52,7 @@ export default async function PartnerResourcesPage({
         resources={resources}
         basePath={`/${slug}/resources`}
         modelFilter={modelFilter}
+        categoryFilter={categoryFilter}
       />
     </div>
   );

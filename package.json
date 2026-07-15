@@ -15,7 +15,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@meavo/db": "github:meavo-booths/meavo-db#v0.16.1",
+    "@meavo/db": "github:meavo-booths/meavo-db#v0.17.1",
     "@meavo/navigation": "github:meavo-booths/meavo-navigation#v0.2.1",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/client": "^6.1.0",

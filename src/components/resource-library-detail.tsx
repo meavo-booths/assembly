@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { BoothModel, ResourceType } from "@prisma/client";
 import { boothModelLabel } from "@/lib/booth-models";
+import { resourceCategoryLabel } from "@/lib/resource-categories";
 import { Card } from "@/components/ui";
+import { ResourceDescription } from "@/components/resource-description";
 import { ResourceImageCarousel } from "@/components/resource-image-carousel";
 
 export type ResourceDetailFile = {
   id: string;
   fileName: string;
   mimeType: string;
+  caption: string;
 };
 
 export type ResourceDetailItem = {
@@ -18,6 +21,7 @@ export type ResourceDetailItem = {
   youtubeVideoId: string | null;
   linkUrl: string | null;
   models: { boothModel: BoothModel }[];
+  categories: { category: Parameters<typeof resourceCategoryLabel>[0] }[];
   files: ResourceDetailFile[];
 };
 
@@ -49,8 +53,16 @@ export function ResourceLibraryDetail({
           ← Back to resources
         </Link>
         <h1 className="mt-2 text-xl font-semibold text-slate-900">{resource.title}</h1>
-        {resource.description && <p className="mt-1 text-sm text-slate-600">{resource.description}</p>}
+        <ResourceDescription description={resource.description} />
         <div className="mt-2 flex flex-wrap gap-1.5">
+          {resource.categories.map((entry) => (
+            <span
+              key={entry.category}
+              className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800"
+            >
+              {resourceCategoryLabel(entry.category)}
+            </span>
+          ))}
           {resource.models.map((entry) => (
             <span
               key={entry.boothModel}
@@ -89,7 +101,13 @@ export function ResourceLibraryDetail({
         </Card>
       ) : resource.type === ResourceType.IMAGE && files.length > 0 ? (
         <Card>
-          <ResourceImageCarousel files={files} />
+          <ResourceImageCarousel
+            files={files.map((file) => ({
+              id: file.id,
+              fileName: file.fileName,
+              caption: file.caption,
+            }))}
+          />
         </Card>
       ) : resource.type === ResourceType.PDF && files.length > 0 ? (
         <Card>

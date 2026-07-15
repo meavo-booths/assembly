@@ -3,7 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BOOTH_MODEL_GROUPS } from "@/lib/booth-models";
+import { RESOURCE_CATEGORIES } from "@/lib/resource-categories";
 import { createResource } from "@/app/actions/resources";
+import { ResourceImageUploadFields } from "@/components/resource-image-upload-fields";
+import { TemplateBodyEditor } from "@/components/template-body-editor";
+import { TemplateMarkupPreview } from "@/components/template-markup-preview";
 import { Button, Input } from "@/components/ui";
 
 type ResourceFormType = "PDF" | "IMAGE" | "YOUTUBE" | "LINK";
@@ -11,6 +15,7 @@ type ResourceFormType = "PDF" | "IMAGE" | "YOUTUBE" | "LINK";
 export function ResourceAddForm() {
   const router = useRouter();
   const [type, setType] = useState<ResourceFormType>("PDF");
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -28,6 +33,7 @@ export function ResourceAddForm() {
         }
         (document.getElementById("resource-add-form") as HTMLFormElement | null)?.reset();
         setType("PDF");
+        setDescription("");
         router.refresh();
       }}
       id="resource-add-form"
@@ -53,12 +59,13 @@ export function ResourceAddForm() {
 
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-slate-700">Description (optional)</span>
-        <textarea
-          name="description"
-          rows={2}
+        <TemplateBodyEditor
+          value={description}
+          onChange={setDescription}
+          rows={4}
           placeholder="Short summary for partners"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
+        <TemplateMarkupPreview text={description} />
       </label>
 
       {type === "PDF" && (
@@ -78,22 +85,7 @@ export function ResourceAddForm() {
         </label>
       )}
 
-      {type === "IMAGE" && (
-        <label className="block space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Images</span>
-          <input
-            name="files"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            multiple
-            required
-            className="block w-full text-sm text-slate-600"
-          />
-          <p className="text-xs text-slate-500">
-            You can select multiple files. JPEG, PNG, WebP, or GIF — max 10 MB each.
-          </p>
-        </label>
-      )}
+      {type === "IMAGE" && <ResourceImageUploadFields required />}
 
       {type === "YOUTUBE" && (
         <Input label="YouTube link" name="youtubeUrl" required placeholder="https://www.youtube.com/watch?v=..." />
@@ -102,6 +94,18 @@ export function ResourceAddForm() {
       {type === "LINK" && (
         <Input label="Link URL" name="linkUrl" required placeholder="https://..." />
       )}
+
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-medium text-slate-700">Categories</legend>
+        <div className="flex flex-wrap gap-3">
+          {RESOURCE_CATEGORIES.map((category) => (
+            <label key={category.value} className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" name="categories" value={category.value} className="rounded border-slate-300" />
+              {category.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium text-slate-700">Applicable booth models</legend>

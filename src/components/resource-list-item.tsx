@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { ResourceType } from "@prisma/client";
 import { boothModelLabel } from "@/lib/booth-models";
+import { resourceCategoryLabel } from "@/lib/resource-categories";
 import { resourceFileCountLabel, resourceTypeLabel } from "@/lib/resources";
+import { templateMarkupToPlainText } from "@/lib/template-markup-plain";
 import { deleteResource, moveResource } from "@/app/actions/resources";
 import { ResourceEditForm, type ResourceEditItem } from "@/components/resource-edit-form";
 import { Button, Card } from "@/components/ui";
@@ -18,6 +20,9 @@ export function ResourceListItem({
   resourceCount: number;
 }) {
   const [editing, setEditing] = useState(false);
+  const plainDescription = resource.description
+    ? templateMarkupToPlainText(resource.description)
+    : "";
 
   if (editing) {
     return (
@@ -38,10 +43,18 @@ export function ResourceListItem({
               {resourceTypeLabel(resource.type)}
             </span>
           </div>
-          {resource.description && (
-            <p className="mt-1 text-sm text-slate-600">{resource.description}</p>
+          {plainDescription && (
+            <p className="mt-1 line-clamp-2 text-sm text-slate-600">{plainDescription}</p>
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">
+            {resource.categories.map((category) => (
+              <span
+                key={category}
+                className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800"
+              >
+                {resourceCategoryLabel(category)}
+              </span>
+            ))}
             {resource.models.map((boothModel) => (
               <span
                 key={boothModel}

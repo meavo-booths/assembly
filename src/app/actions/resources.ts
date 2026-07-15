@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMeavoAccess } from "@/lib/meavo-auth";
 import { parseBoothModels, parseYoutubeVideoId } from "@/lib/booth-models";
+import { parseResourceCategories } from "@/lib/resource-categories";
 import { parseHttpUrl, RESOURCE_IMAGE_MIME_TYPES } from "@/lib/resources";
 import {
   MAX_RESOURCE_FILES,
@@ -19,6 +20,18 @@ function getUploadedFiles(formData: FormData): File[] {
   return formData
     .getAll("files")
     .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+}
+
+function parseFileCaptions(formData: FormData, fieldName: string): string[] {
+  return formData.getAll(fieldName).map((value) => String(value).trim());
+}
+
+function parseExistingCaptions(formData: FormData, fileIds: string[]): Map<string, string> {
+  const captions = new Map<string, string>();
+  for (const fileId of fileIds) {
+    captions.set(fileId, String(formData.get(`caption_${fileId}`) ?? "").trim());
+  }
+  return captions;
 }
 
 async function uploadResourceFiles(
@@ -62,10 +75,12 @@ export async function updateResource(formData: FormData): Promise<{ error?: stri
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const models = parseBoothModels(formData);
+  const categories = parseResourceCategories(formData);
 
   if (!id) return { error: "Resource not found." };
   if (!title) return { error: "Title is required." };
   if (models.length === 0) return { error: "Select at least one booth model." };
+  if (categories.length === 0) return { error: "Select at least one category." };
 
   const resource = await prisma.resource.findUnique({
     where: { id },
@@ -92,7 +107,7 @@ export async function updateResource(formData: FormData): Promise<{ error?: stri
     }
   }
 
-  let uploaded: { storageKey: string; fileName: string; mimeType: string }[] = [];
+  let uploaded: { storageKey: string; fileName: string; mimeType: string; caption?: string }[] = [];
 
   if (resource.type === ResourceType.PDF) {
     for (const file of newFiles) {
@@ -114,8 +129,14 @@ export async function updateResource(formData: FormData): Promise<{ error?: stri
       }
     }
 
+    const newCaptions = parseFileCaptions(formData, "newFileCaptions");
+
     try {
-      uploaded = await uploadResourceFiles(newFiles, MAX_RESOURCE_IMAGE_BYTES, MAX_RESOURCE_IMAGE_ERROR);
+      const blobs = await uploadResourceFiles(newFiles, MAX_RESOURCE_IMAGE_BYTES, MAX_RESOURCE_IMAGE_ERROR);
+      uploaded = blobs.map((file, index) => ({
+        ...file,
+        caption: newCaptions[index] ?? "",
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to upload images. Try again.";
       return { error: message };
@@ -139,6 +160,11 @@ export async function updateResource(formData: FormData): Promise<{ error?: stri
     typeUpdate = { linkUrl };
   }
 
+  const remainingFileIds = resource.files
+    .filter((file) => !removeFileIds.includes(file.id))
+    .map((file) => file.id);
+  const existingCaptions = parseExistingCaptions(formData, remainingFileIds);
+
   await prisma.$transaction(async (tx) => {
     await tx.resource.update({
       where: { id },
@@ -154,9 +180,21 @@ export async function updateResource(formData: FormData): Promise<{ error?: stri
       data: models.map((boothModel) => ({ resourceId: id, boothModel })),
     });
 
+    await tx.resourceCategory.deleteMany({ where: { resourceId: id } });
+    await tx.resourceCategory.createMany({
+      data: categories.map((category) => ({ resourceId: id, category })),
+    });
+
     if (removeFileIds.length > 0) {
       await tx.resourceFile.deleteMany({
         where: { id: { in: removeFileIds }, resourceId: id },
+      });
+    }
+
+    for (const fileId of remainingFileIds) {
+      await tx.resourceFile.update({
+        where: { id: fileId },
+        data: { caption: existingCaptions.get(fileId) ?? "" },
       });
     }
 
@@ -170,6 +208,7 @@ export async function updateResource(formData: FormData): Promise<{ error?: stri
             resource.type === ResourceType.PDF
               ? file.mimeType || "application/pdf"
               : file.mimeType,
+          caption: file.caption ?? "",
         })),
       });
     }
@@ -195,12 +234,16 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
   const description = String(formData.get("description") ?? "").trim();
   const type = String(formData.get("type") ?? "");
   const models = parseBoothModels(formData);
+  const categories = parseResourceCategories(formData);
 
   if (!title) return { error: "Title is required." };
   if (models.length === 0) return { error: "Select at least one booth model." };
+  if (categories.length === 0) return { error: "Select at least one category." };
 
   const maxOrder = await prisma.resource.aggregate({ _max: { sortOrder: true } });
   const sortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
+
+  const categoryCreate = categories.map((category) => ({ category }));
 
   if (type === "PDF") {
     const files = getUploadedFiles(formData);
@@ -225,6 +268,7 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
           type: ResourceType.PDF,
           sortOrder,
           models: { create: models.map((boothModel) => ({ boothModel })) },
+          categories: { create: categoryCreate },
           files: {
             create: uploaded.map((file) => ({
               storageKey: file.storageKey,
@@ -251,6 +295,8 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
       }
     }
 
+    const captions = parseFileCaptions(formData, "fileCaptions");
+
     try {
       const uploaded = await uploadResourceFiles(files, MAX_RESOURCE_IMAGE_BYTES, MAX_RESOURCE_IMAGE_ERROR);
 
@@ -261,11 +307,13 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
           type: ResourceType.IMAGE,
           sortOrder,
           models: { create: models.map((boothModel) => ({ boothModel })) },
+          categories: { create: categoryCreate },
           files: {
-            create: uploaded.map((file) => ({
+            create: uploaded.map((file, index) => ({
               storageKey: file.storageKey,
               fileName: file.fileName,
               mimeType: file.mimeType,
+              caption: captions[index] ?? "",
             })),
           },
         },
@@ -288,6 +336,7 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
         youtubeVideoId,
         sortOrder,
         models: { create: models.map((boothModel) => ({ boothModel })) },
+        categories: { create: categoryCreate },
       },
     });
   } else if (type === "LINK") {
@@ -302,6 +351,7 @@ export async function createResource(formData: FormData): Promise<{ error?: stri
         linkUrl,
         sortOrder,
         models: { create: models.map((boothModel) => ({ boothModel })) },
+        categories: { create: categoryCreate },
       },
     });
   } else {

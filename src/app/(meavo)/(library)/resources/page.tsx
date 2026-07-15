@@ -14,6 +14,7 @@ export default async function ResourcesPage() {
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     include: {
       models: true,
+      categories: true,
       files: { orderBy: { fileName: "asc" } },
     },
   });
@@ -51,9 +52,11 @@ export default async function ResourcesPage() {
               youtubeUrl: resource.youtubeUrl,
               linkUrl: resource.linkUrl,
               models: resource.models.map((entry) => entry.boothModel),
+              categories: resource.categories.map((entry) => entry.category),
               files: resource.files.map((file) => ({
                 id: file.id,
                 fileName: file.fileName,
+                caption: file.caption,
               })),
             }}
             resourceIndex={resourceIndex}

@@ -2,10 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BoothModel, ResourceType } from "@prisma/client";
+import { BoothModel, ResourceCategoryKind, ResourceType } from "@prisma/client";
 import { BOOTH_MODEL_GROUPS } from "@/lib/booth-models";
+import { RESOURCE_CATEGORIES } from "@/lib/resource-categories";
 import { resourceTypeLabel } from "@/lib/resources";
 import { updateResource } from "@/app/actions/resources";
+import { ResourceImageEditFields } from "@/components/resource-image-edit-fields";
+import { TemplateBodyEditor } from "@/components/template-body-editor";
+import { TemplateMarkupPreview } from "@/components/template-markup-preview";
 import { Button, Input } from "@/components/ui";
 
 export type ResourceEditItem = {
@@ -16,7 +20,8 @@ export type ResourceEditItem = {
   youtubeUrl: string | null;
   linkUrl: string | null;
   models: BoothModel[];
-  files: { id: string; fileName: string }[];
+  categories: ResourceCategoryKind[];
+  files: { id: string; fileName: string; caption: string }[];
 };
 
 export function ResourceEditForm({
@@ -27,9 +32,11 @@ export function ResourceEditForm({
   onCancel: () => void;
 }) {
   const router = useRouter();
+  const [description, setDescription] = useState(resource.description);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const selectedModels = new Set(resource.models);
+  const selectedCategories = new Set(resource.categories);
 
   return (
     <form
@@ -61,13 +68,13 @@ export function ResourceEditForm({
 
       <label className="block space-y-1 text-sm">
         <span className="font-medium text-slate-700">Description (optional)</span>
-        <textarea
-          name="description"
-          rows={2}
-          defaultValue={resource.description}
+        <TemplateBodyEditor
+          value={description}
+          onChange={setDescription}
+          rows={4}
           placeholder="Short summary for partners"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
+        <TemplateMarkupPreview text={description} />
       </label>
 
       {resource.type === ResourceType.YOUTUBE && (
@@ -127,42 +134,32 @@ export function ResourceEditForm({
       )}
 
       {resource.type === ResourceType.IMAGE && (
-        <>
-          {resource.files.length > 0 && (
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-medium text-slate-700">Existing images</legend>
-              <ul className="space-y-2">
-                {resource.files.map((file) => (
-                  <li key={file.id}>
-                    <label className="flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        name="removeFileIds"
-                        value={file.id}
-                        className="rounded border-slate-300"
-                      />
-                      <span className="truncate">Remove {file.fileName}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </fieldset>
-          )}
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Add more images</span>
-            <input
-              name="files"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-              className="block w-full text-sm text-slate-600"
-            />
-            <p className="text-xs text-slate-500">
-              Optional. JPEG, PNG, WebP, or GIF — max 10 MB each.
-            </p>
-          </label>
-        </>
+        <ResourceImageEditFields
+          existingFiles={resource.files.map((file) => ({
+            id: file.id,
+            fileName: file.fileName,
+            caption: file.caption,
+          }))}
+        />
       )}
+
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-medium text-slate-700">Categories</legend>
+        <div className="flex flex-wrap gap-3">
+          {RESOURCE_CATEGORIES.map((category) => (
+            <label key={category.value} className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                name="categories"
+                value={category.value}
+                defaultChecked={selectedCategories.has(category.value)}
+                className="rounded border-slate-300"
+              />
+              {category.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium text-slate-700">Applicable booth models</legend>

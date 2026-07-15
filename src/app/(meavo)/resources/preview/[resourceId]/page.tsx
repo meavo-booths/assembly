@@ -18,7 +18,11 @@ export default async function ResourcePreviewDetailPage({
 
   const resource = await prisma.resource.findUnique({
     where: { id: resourceId },
-    include: { models: true, files: { orderBy: { fileName: "asc" } } },
+    include: {
+      models: true,
+      categories: true,
+      files: { orderBy: { fileName: "asc" } },
+    },
   });
   if (!resource) notFound();
 
