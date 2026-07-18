@@ -8,8 +8,8 @@ import {
 } from "@meavo/navigation";
 
 const links: NavLink[] = [
-  { href: "/", label: "Assemblies" },
   { href: "/deals", label: "Ready deals" },
+  { href: "/", label: "Assemblies" },
   { href: "/calendar", label: "Calendar" },
   { href: "/partners", label: "Library" },
 ];
