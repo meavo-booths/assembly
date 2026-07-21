@@ -10,6 +10,7 @@ import { Button, Card } from "@/components/ui";
 export function AssemblyDetailCard({
   values,
   options,
+  markets = [],
   deliveryCompanies,
   installCompanies,
   deal,
@@ -34,6 +35,7 @@ export function AssemblyDetailCard({
       <ScheduleAssemblyForm
         mode="edit"
         options={options}
+        markets={markets}
         deliveryCompanies={deliveryCompanies}
         installCompanies={installCompanies}
         values={values}

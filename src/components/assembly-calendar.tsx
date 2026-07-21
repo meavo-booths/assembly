@@ -599,6 +599,7 @@ function EventModal({
           <ScheduleAssemblyForm
             mode="edit"
             options={options}
+            markets={markets}
             deliveryCompanies={deliveryCompanies}
             installCompanies={installCompanies}
             values={v}

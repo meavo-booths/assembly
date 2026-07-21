@@ -8,6 +8,7 @@ import { DeleteAssemblyButton } from "@/components/delete-assembly-button";
 import { buildLinkedDealSummary } from "@/lib/deal-summary";
 import { toAssemblyFormValues } from "@/lib/assembly-form-values";
 import { loadScheduleFormContext } from "@/lib/schedule-form-context";
+import { getAssemblyMarkets } from "@/lib/assembly-form-suggestions";
 import { dealSummaryInclude } from "@/lib/deal-queries";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader, VipBadge } from "@/components/ui";
@@ -40,8 +41,9 @@ export default async function AssemblyDetailPage({
 
   const submission = assembly.submissions[0];
 
-  const [formContext, linkedDealForForm] = await Promise.all([
+  const [formContext, markets, linkedDealForForm] = await Promise.all([
     loadScheduleFormContext(),
+    getAssemblyMarkets(),
     assembly.linkedDealId
       ? prisma.deal.findUnique({
           where: { dealId: assembly.linkedDealId },
@@ -84,6 +86,7 @@ export default async function AssemblyDetailPage({
       <AssemblyDetailCard
         values={formValues}
         options={formContext.options}
+        markets={markets}
         deliveryCompanies={formContext.deliveryCompanies}
         installCompanies={formContext.installCompanies}
         deal={dealSummary}

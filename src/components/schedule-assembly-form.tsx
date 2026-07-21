@@ -5,11 +5,15 @@ import { useId, useState } from "react";
 import { createAssembly, updateAssembly } from "@/app/actions/assemblies";
 import type { DealForAssemblyResult } from "@/app/actions/deals";
 import {
+  CLIENT_TYPE_OPTIONS,
   EVENT_TYPE_OPTIONS,
   INTERNAL_TEAM_OPTIONS,
   ISSUE_OPTIONS,
   type SheetDropdownOptions,
 } from "@/lib/assembly-schedule";
+
+/** Deal-facing client types (sheet column E) — Direct / Agency / CoWorking. */
+const DEAL_CLIENT_TYPE_OPTIONS: string[] = CLIENT_TYPE_OPTIONS.slice(0, 3);
 import { LinkedDealBoxes } from "@/components/linked-deal-card";
 import type { LinkedDealSummary } from "@/lib/deal-summary";
 import { DealIdSearchField } from "@/components/deal-id-search-field";
@@ -166,6 +170,7 @@ function IssueCategories({ options, initial }: { options: string[]; initial: str
 export function ScheduleAssemblyForm({
   mode,
   options,
+  markets = [],
   deliveryCompanies = [],
   installCompanies = [],
   values,
@@ -256,9 +261,13 @@ export function ScheduleAssemblyForm({
       }}
     >
       {mode === "edit" && <input type="hidden" name="id" value={initial.id ?? ""} />}
-      <input type="hidden" name="market" value={market} />
-      <input type="hidden" name="channelType" value={channelType} />
-      <input type="hidden" name="clientName" value={clientName} />
+      {showDealBoxes && (
+        <>
+          <input type="hidden" name="market" value={market} />
+          <input type="hidden" name="channelType" value={channelType} />
+          <input type="hidden" name="clientName" value={clientName} />
+        </>
+      )}
 
       <div
         className={
@@ -321,6 +330,55 @@ export function ScheduleAssemblyForm({
               onDealSelect={handleDealSelect}
               readOnly={dealLocked || (mode === "edit" && Boolean(initial.linkedDealId))}
             />
+            {!showDealBoxes && (
+              <>
+                <Field label="Market">
+                  <select
+                    name="market"
+                    value={market}
+                    onChange={(event) => setMarket(event.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">—</option>
+                    {market && !markets.includes(market) && (
+                      <option value={market}>{market}</option>
+                    )}
+                    {markets.map((entry) => (
+                      <option key={entry} value={entry}>
+                        {entry}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Company name">
+                  <input
+                    name="clientName"
+                    value={clientName}
+                    onChange={(event) => setClientName(event.target.value)}
+                    className={inputClass}
+                    placeholder="Client / company name"
+                  />
+                </Field>
+                <Field label="Client type">
+                  <select
+                    name="channelType"
+                    value={channelType}
+                    onChange={(event) => setChannelType(event.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">—</option>
+                    {channelType && !DEAL_CLIENT_TYPE_OPTIONS.includes(channelType) && (
+                      <option value={channelType}>{channelType}</option>
+                    )}
+                    {DEAL_CLIENT_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </>
+            )}
             <Field label="Delivery Company">
               <input
                 name="deliveryPartnerName"
