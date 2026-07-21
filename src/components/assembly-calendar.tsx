@@ -389,6 +389,7 @@ export function AssemblyCalendar({
           event={selected}
           editing={editing}
           options={options}
+          markets={markets}
           deliveryCompanies={deliveryCompanies}
           installCompanies={installCompanies}
           onEdit={() => setEditing(true)}
@@ -571,6 +572,7 @@ function EventModal({
   event,
   editing,
   options,
+  markets,
   deliveryCompanies,
   installCompanies,
   onEdit,
@@ -580,6 +582,7 @@ function EventModal({
   event: CalendarEvent;
   editing: boolean;
   options: SheetDropdownOptions;
+  markets: string[];
   deliveryCompanies: string[];
   installCompanies: string[];
   onEdit: () => void;
