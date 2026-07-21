@@ -55,29 +55,28 @@ function buildRow(fields: AssemblySheetFields): string[] {
   return row;
 }
 
-function parseAppendedRowNumber(updatedRange: string | null | undefined): number | null {
-  if (!updatedRange) return null;
-  const match = updatedRange.match(/![A-Z]+(\d+)/);
-  return match ? Number(match[1]) : null;
-}
-
-/** Append a new assembly row. Returns the 1-based row number when available. */
-export async function appendAssemblyRow(
-  fields: AssemblySheetFields,
-): Promise<{ rowNumber: number | null }> {
+/**
+ * First 1-based sheet row whose Deal ID (column B) is empty.
+ * Skips the header row. Prefers gaps left by formula-filled rows that
+ * look empty but still block Sheets' values.append table-end detection.
+ */
+export async function findFirstEmptyDealRow(): Promise<number> {
   const sheets = await getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
-  const lastLetter = columnLetter(ASSEMBLY_SHEET_LAST_COLUMN_INDEX);
+  const dealLetter = columnLetter(ASSEMBLY_SHEET_COLUMNS.deal);
 
-  const response = await sheets.spreadsheets.values.append({
+  const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${ASSEMBLY_SHEET_TAB}'!A:${lastLetter}`,
-    valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [buildRow(fields)] },
+    range: `'${ASSEMBLY_SHEET_TAB}'!${dealLetter}:${dealLetter}`,
   });
 
-  return { rowNumber: parseAppendedRowNumber(response.data.updates?.updatedRange) };
+  const values = response.data.values ?? [];
+  // Row 1 is the header — start looking from index 1 (sheet row 2).
+  for (let i = 1; i < values.length; i += 1) {
+    if (!String(values[i]?.[0] ?? "").trim()) return i + 1;
+  }
+  // Column B is empty after the last returned cell (or only a header exists).
+  return Math.max(values.length + 1, 2);
 }
 
 /** Locate the 1-based sheet row for a deal ID by scanning column B. */
@@ -135,6 +134,19 @@ export async function updateAssemblyRow(
       ],
     },
   });
+}
+
+/**
+ * Write a new assembly into the first empty Deal ID row (column B).
+ * Avoids values.append, which treats pre-filled formulas in A–S as occupied
+ * and can land far below the first available deal slot.
+ */
+export async function appendAssemblyRow(
+  fields: AssemblySheetFields,
+): Promise<{ rowNumber: number | null }> {
+  const rowNumber = await findFirstEmptyDealRow();
+  await updateAssemblyRow(rowNumber, fields);
+  return { rowNumber };
 }
 
 /**
