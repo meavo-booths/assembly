@@ -39,7 +39,7 @@ export default async function PartnerPortalPage({
 
   const partnerRecord = await prisma.assemblyPartner.findFirst({
     where: { slug, isActive: true, isInternal: false },
-    30|  });
+  });
   if (!partnerRecord) notFound();
 
   const sessionPartner = await requirePartnerSession(slug);
