@@ -39,6 +39,12 @@ function addDays(parts: DateParts, days: number): DateParts {
   };
 }
 
+/** Calendar day in Europe/London as a UTC `@db.Date` value (`offsetDays` from today). */
+export function londonAssemblyDate(offsetDays = 0): Date {
+  const today = getZonedDateParts(ASSEMBLY_TIMEZONE);
+  return partsToStoredDate(offsetDays === 0 ? today : addDays(today, offsetDays));
+}
+
 function parseIsoDate(value: string | undefined): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split("-").map(Number);

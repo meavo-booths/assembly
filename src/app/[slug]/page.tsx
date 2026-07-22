@@ -1,18 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { SubmissionStatus } from "@prisma/client";
+import { Prisma, SubmissionStatus } from "@prisma/client";
 import { partnerLogout } from "@/app/actions/partner";
 import { requirePartnerSession } from "@/lib/partner-session";
+import { londonAssemblyDate } from "@/lib/assembly-filters";
 import { prisma } from "@/lib/prisma";
 import { MEVAO_RESERVED_SEGMENTS } from "@/lib/constants";
 import { PartnerLoginForm } from "@/components/partner-login-form";
+import {
+  PartnerAssemblyFilters,
+  type PartnerAssemblyView,
+} from "@/components/partner-assembly-filters";
 import { Button, Card } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-function startOfTodayUtc(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+function parsePartnerView(value: string | undefined): PartnerAssemblyView {
+  if (value === "yesterday" || value === "all") return value;
+  return "upcoming";
+}
+
+function emptyStateMessage(view: PartnerAssemblyView, search: string | null): string {
+  if (search) return "No assemblies match your search.";
+  if (view === "yesterday") return "No assemblies yesterday.";
+  if (view === "all") return "No assemblies assigned to you yet.";
+  return "No upcoming assemblies assigned to you.";
 }
 
 export default async function PartnerPortalPage({
@@ -20,19 +32,22 @@ export default async function PartnerPortalPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ showPast?: string }>;
+  searchParams: Promise<{ view?: string; q?: string }>;
 }) {
   const { slug } = await params;
   if (MEVAO_RESERVED_SEGMENTS.has(slug)) notFound();
 
   const partnerRecord = await prisma.assemblyPartner.findFirst({
     where: { slug, isActive: true, isInternal: false },
-  });
+    30|  });
   if (!partnerRecord) notFound();
 
   const sessionPartner = await requirePartnerSession(slug);
-  const { showPast } = await searchParams;
-  const showPastDates = showPast === "1";
+  const { view: viewParam, q: qParam } = await searchParams;
+  const search = qParam?.trim() || null;
+  const view = parsePartnerView(viewParam);
+  // Search spans all dates (ignore view filter while searching).
+  const effectiveView: PartnerAssemblyView = search ? "all" : view;
 
   if (!sessionPartner) {
     return (
@@ -46,11 +61,31 @@ export default async function PartnerPortalPage({
     );
   }
 
-  const today = startOfTodayUtc();
+  const todayLondon = londonAssemblyDate(0);
+  const yesterdayLondon = londonAssemblyDate(-1);
+
+  const dateFilter: Prisma.AssemblyWhereInput =
+    effectiveView === "all"
+      ? {}
+      : effectiveView === "yesterday"
+        ? { assemblyDate: { gte: yesterdayLondon, lte: yesterdayLondon } }
+        : { OR: [{ assemblyDate: null }, { assemblyDate: { gte: todayLondon } }] };
+
+  const searchFilter: Prisma.AssemblyWhereInput = search
+    ? {
+        OR: [
+          { dealId: { contains: search, mode: "insensitive" } },
+          { linkedDealId: { contains: search, mode: "insensitive" } },
+          { clientName: { contains: search, mode: "insensitive" } },
+        ],
+      }
+    : {};
+
   const assemblies = await prisma.assembly.findMany({
     where: {
       installPartnerId: partnerRecord.id,
-      ...(showPastDates ? {} : { OR: [{ assemblyDate: null }, { assemblyDate: { gte: today } }] }),
+      ...dateFilter,
+      ...searchFilter,
     },
     orderBy: [{ assemblyDate: "asc" }, { dealId: "asc" }],
     include: {
@@ -87,14 +122,7 @@ export default async function PartnerPortalPage({
         Resources
       </Link>
 
-      <div className="mb-4">
-        <Link
-          href={showPastDates ? `/${slug}` : `/${slug}?showPast=1`}
-          className="text-sm text-brand-700 underline"
-        >
-          {showPastDates ? "Hide past assemblies" : "Show past assemblies"}
-        </Link>
-      </div>
+      <PartnerAssemblyFilters slug={slug} view={effectiveView} search={search} />
 
       <div className="grid gap-3">
         {assemblies.map((assembly) => {
@@ -131,7 +159,7 @@ export default async function PartnerPortalPage({
         })}
         {assemblies.length === 0 && (
           <Card>
-            <p className="text-sm text-slate-600">No upcoming assemblies assigned to you.</p>
+            <p className="text-sm text-slate-600">{emptyStateMessage(effectiveView, search)}</p>
           </Card>
         )}
       </div>
